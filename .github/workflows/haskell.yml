@@ -42,20 +42,20 @@ jobs:
       
     - name: Run tests
       run: cabal test all
-      
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v2.2.4
+
+    - name: Copy Binary File
       if: ${{ runner.os == 'Windows' }}
-      with:
-        name: Build Artifact on ${{ runner.os }}
-        path: 
-          ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe.exe
+      run: copy ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe.exe ./pipe.exe
+      
+    - name: Copy Binary File
+      if: ${{ runner.os != 'Windows' }}
+      run: cp ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe ./pipe
 
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v2.2.4
-      if: ${{ runner.os != 'Windows' }}
       with:
         name: Build Artifact on ${{ runner.os }}
-        path: 
-          ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe
-          
+        path: |
+          pipe.exe
+          pipe
+
