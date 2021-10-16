@@ -1,14 +1,14 @@
 name:                pipe
 version:             0.1.0.0
 -- synopsis:
--- description:
-homepage:            https://github.com/githubuser/pipe#readme
-license:             BSD3
+description:         Build System for game assets.
+homepage:            https://github.com/Strrationalism/Pipe
+license:             MIT
 license-file:        LICENSE
-author:               Strrationalism
-maintainer:          example@example.com
-copyright:           2021  Strrationalism
-category:            Web
+author:              Strrationalism
+maintainer:          853974536@qq.com
+copyright:           2021 Strrationalism
+category:            Distribution
 build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
@@ -40,4 +40,4 @@ test-suite pipe-test
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/pipe
+  location: https://github.com/Strrationalism/Pipe

@@ -45,6 +45,17 @@ jobs:
       
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v2.2.4
+      if: ${{ runner.os == 'Windows' }}
       with:
         name: Build Artifact on ${{ runner.os }}
-        path: ./
+        path: 
+          ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe.exe
+
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v2.2.4
+      if: ${{ runner.os != 'Windows' }}
+      with:
+        name: Build Artifact on ${{ runner.os }}
+        path: 
+          ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe
+          
