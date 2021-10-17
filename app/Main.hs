@@ -1,6 +1,6 @@
 module Main where
 
-import Lib (hello)
+import Language.PipeScript(AST)
 
 main :: IO ()
-main = putStrLn hello
+main = putStrLn "Hello"
