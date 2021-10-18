@@ -1,6 +1,6 @@
 module Language.PipeScript
-  ( Identifier,
-    Variable,
+  ( Identifier (..),
+    Variable (..),
     Platform,
     PlatformSet,
     PlatformFilter,
@@ -32,6 +32,12 @@ data PlatformFilter = PlatformFromAndTo
     platformTo :: PlatformSet
   }
   deriving (Eq, Read, Show)
+
+data Constant 
+  = ConstInt Int
+  | ConstStr String
+  | ConstNumber Float
+  | ConstBool Bool
 
 data Expression
   = CallExpr Expression Expression
