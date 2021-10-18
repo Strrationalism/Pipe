@@ -64,7 +64,7 @@ int = do
   i <- some digitChar
   return $ read $ maybeToList sig ++ i
 
-number :: Parser Double
+number :: Parser Float
 number = do
   sig <- optionMaybe $ char '-'
   a <- some digitChar

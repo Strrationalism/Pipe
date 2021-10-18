@@ -36,7 +36,7 @@ data PlatformFilter = PlatformFromAndTo
 data Constant 
   = ConstInt Int
   | ConstStr String
-  | ConstNumber Float
+  | ConstNumber Double
   | ConstBool Bool
 
 data Expression

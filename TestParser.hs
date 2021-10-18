@@ -32,10 +32,10 @@ basic =
     \x -> test int (show x) == Right x
   it "int negative" $ property $
     \x -> test int (show $ negate x) == Right (negate x)
-  it "number" $ do
-    test number (show "1.234") == Right "1.234"
+  it "number" $ property $
+    \x -> test number (show x) == Right x
   it "number negative" $ property $
-    \x -> test number (show "-1.") == Right $ 0.0 - 1.0
+    \x -> test number (show $ negate x) == Right (negate x)
   it "string constant" $ do
     test stringConstant "\"abc\\ndef\\n\"" `shouldBe` Right "abc\ndef\n"
   it "line end" $ do
