@@ -47,7 +47,7 @@ data Expression
   | ConstantExpr Constant
   | ExpandExpr Expression
   | DoubleExpandExpr Expression
-  | CallExpr Expression [Expression]
+  | ApplyExpr Expression [Expression]
   | ListExpr [Expression]
   deriving (Eq, Read, Show)
 
