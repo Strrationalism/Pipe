@@ -120,7 +120,7 @@ fileEnd = do
   void eof
 
 whiteSpaceOrLineEnd :: Parser ()
-whiteSpaceOrLineEnd = choice [whiteSpace, lineEnd]
+whiteSpaceOrLineEnd = whiteSpace <|> lineEnd
 
 wsle0 :: Parser ()
 wsle0 = void $ many whiteSpaceOrLineEnd
