@@ -101,14 +101,23 @@ stringConstant = do
   return str
 
 comment :: Parser ()
-comment = do
-  char '#'
-  void $ many $ satisfy (\x -> (x /= '\n') && (x /= '\r'))
+comment =
+  do
+    char '#'
+    void $ many $ satisfy (\x -> (x /= '\n') && (x /= '\r'))
+    <?> "comment"
 
 lineEnd :: Parser ()
 lineEnd = do
+  ws0
   void $ optionMaybe comment
-  choice [void endOfLine, eof]
+  void endOfLine
+
+fileEnd :: Parser ()
+fileEnd = do
+  ws0
+  void $ optionMaybe comment
+  void eof
 
 whiteSpaceOrLineEnd :: Parser ()
 whiteSpaceOrLineEnd = choice [whiteSpace, lineEnd]

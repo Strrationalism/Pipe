@@ -19,8 +19,8 @@ atomicExpr =
 expandExpr :: Parser Expression
 expandExpr = do
   choice 
-    [ try $ DoubleExpandExpr <$> (string "~~" *> expr),
-      ExpandExpr <$> (string "~" *> expr) ]
+    [ try $ DoubleExpandExpr <$> (string "~~" *> wsle0 *> expr),
+      ExpandExpr <$> (string "~" *> wsle0 *> expr) ]
 
 expr :: Parser Expression
 expr =

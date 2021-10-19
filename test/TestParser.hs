@@ -51,16 +51,16 @@ basic =
       test stringConstant "\"abc\\ndef\\n\"" `shouldBe` Right "abc\ndef\n"
 
     it "line end" $ do
-      test lineEnd "" `shouldBe` Right ()
+      test lineEnd "\r\n" `shouldBe` Right ()
 
     it "line end with comment" $ do
-      test lineEnd "# This is a super comment!!!   " `shouldBe` Right ()
+      test lineEnd "# This is a super comment!!!   \n" `shouldBe` Right ()
 
-    --it "wsle0" $ do
-      --test wsle0 "" `shouldBe` Right ()
+    it "wsle0" $ do
+      test wsle0 "" `shouldBe` Right ()
 
-    --it "wsle1" $ do
-      --test wsle1 " " `shouldBe` Right ()
+    it "wsle1" $ do
+      test wsle1 " " `shouldBe` Right ()
 
     it "ws0" $ do
       test ws0 "" `shouldBe` Right ()
