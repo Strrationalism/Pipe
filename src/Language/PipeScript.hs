@@ -1,15 +1,16 @@
 module Language.PipeScript
   ( Identifier (..),
     Variable (..),
-    Platform,
-    PlatformSet,
-    PlatformFilter,
-    Expression,
-    Statement,
-    BlockDefination,
-    OperationType,
-    TopLevel,
-    AST,
+    Constant (..),
+    Platform (..),
+    PlatformSet (..),
+    PlatformFilter (..),
+    Expression (..),
+    Statement (..),
+    BlockDefination (..),
+    OperationType (..),
+    TopLevel (..),
+    AST (..),
   )
 where
 
@@ -33,25 +34,25 @@ data PlatformFilter = PlatformFromAndTo
   }
   deriving (Eq, Read, Show)
 
-data Constant 
+data Constant
   = ConstInt Int
   | ConstStr String
   | ConstNumber Double
   | ConstBool Bool
+  deriving (Eq, Read, Show)
 
 data Expression
-  = CallExpr Expression Expression
-  | IdentifierExpr Identifier
+  = IdentifierExpr Identifier
   | VariableExpr Variable
+  | ConstantExpr Constant
   | ExpandExpr Expression
   | DoubleExpandExpr Expression
-  | ConstantExpr String
+  | CallExpr Expression [Expression]
   | ListExpr [Expression]
   deriving (Eq, Read, Show)
 
 data Statement
-  = AssignmentStat Variable Expression
-  | ExpressionStat Expression
+  = ExpressionStat Expression
   | IfStat Expression [Statement] [Statement]
   deriving (Eq, Read, Show)
 

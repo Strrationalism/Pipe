@@ -6,11 +6,14 @@ module Language.PipeScript.Parser.Basic
     ws0,
     ws1,
     variable,
-    bool,
-    int,
-    number,
+    boolConstant,
+    intConstant,
+    numberConstant,
     stringConstant,
     lineEnd,
+    wsle1,
+    wsle0,
+    whiteSpaceOrLineEnd,
   )
 where
 
@@ -51,26 +54,29 @@ variable = do
   ws0
   Variable <$> identifier
 
-bool :: Parser Bool
-bool = do
+boolConstant :: Parser Bool
+boolConstant = do
   choice <- choice [string "true", string "false"]
   if choice == "true"
     then return True
     else return False
 
-int :: Parser Int
-int = do
+intConstant :: Parser Int
+intConstant = do
   sig <- optionMaybe $ char '-'
   i <- some digitChar
   return $ read $ maybeToList sig ++ i
 
-number :: Parser Double
-number = do
+numberConstant :: Parser Double
+numberConstant = do
   sig <- optionMaybe $ char '-'
   a <- some digitChar
   char '.'
   b <- many digitChar
-  return $ read $ maybeToList sig ++ a ++ "." ++ b
+  let bx = case b of
+        [] -> "0"
+        x -> x
+  return $ read $ maybeToList sig ++ a ++ "." ++ bx
 
 charInStringConstant :: Parser Char
 charInStringConstant = do
@@ -101,6 +107,14 @@ comment = do
 
 lineEnd :: Parser ()
 lineEnd = do
-  ws0
   void $ optionMaybe comment
   choice [void endOfLine, eof]
+
+whiteSpaceOrLineEnd :: Parser ()
+whiteSpaceOrLineEnd = choice [whiteSpace, lineEnd]
+
+wsle0 :: Parser ()
+wsle0 = void $ many whiteSpaceOrLineEnd
+
+wsle1 :: Parser ()
+wsle1 = void $ some whiteSpaceOrLineEnd
