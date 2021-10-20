@@ -6,10 +6,10 @@ import Language.PipeScript
 import Language.PipeScript.Parser.Basic
 import Language.PipeScript.Parser.Expression (expr)
 import Language.PipeScript.Parser.Statement (stats)
+import Language.PipeScript.Parser.TopLevel (topLevelDef)
 import Test.Hspec
 import Test.QuickCheck
 import Text.Parsec
-import Language.PipeScript.Parser.TopLevel (topLevelDef)
 
 test :: Parser a -> String -> Either ParseError a
 test parser = parse parser "test" . pack
@@ -171,8 +171,10 @@ statement =
       test stats "if add { \n    mkdir }"
         `shouldBe` Right
           [ IfStat
-              [(IdentifierExpr $ Identifier "add", 
-                [ ExprStat $ IdentifierExpr (Identifier "mkdir") ])]
+              [ ( IdentifierExpr $ Identifier "add",
+                  [ExprStat $ IdentifierExpr (Identifier "mkdir")]
+                )
+              ]
               []
           ]
 
@@ -180,8 +182,8 @@ statement =
       test stats "if add { \n     } else { mkdir }"
         `shouldBe` Right
           [ IfStat
-              [ (IdentifierExpr $ Identifier "add", []) ]
-              [ ExprStat $ IdentifierExpr (Identifier "mkdir") ]
+              [(IdentifierExpr $ Identifier "add", [])]
+              [ExprStat $ IdentifierExpr (Identifier "mkdir")]
           ]
 
     it "If-ElseIf-Else Statement" $ do
@@ -189,7 +191,8 @@ statement =
         `shouldBe` Right
           [ IfStat
               [ (IdentifierExpr $ Identifier "add", []),
-                (IdentifierExpr $ Identifier "sub", [ ExprStat $ IdentifierExpr (Identifier "mkdir") ]) ]
+                (IdentifierExpr $ Identifier "sub", [ExprStat $ IdentifierExpr (Identifier "mkdir")])
+              ]
               []
           ]
 
@@ -198,8 +201,70 @@ topLevel :: Spec
 topLevel =
   describe "Top Level Parser" $ do
     it "Include" $ do
-      test topLevelDef "-include \"abc.pipe\"" 
+      test topLevelDef "-include \"abc.pipe\""
         `shouldBe` Right (Include "abc.pipe")
+    it "Complex" $ do
+      test topLevelDef "- before action super $abc $def for Windows to { Linux, macOS, Windows }\nmkdir"
+        `shouldBe` Right
+          ( OperationDefination
+              BeforeAction
+              ( BlockDefination
+                  { name = Identifier "super",
+                    parameters =
+                      [ Variable (Identifier "abc"),
+                        Variable (Identifier "def")
+                      ],
+                    platformFilter =
+                      PlatformFilter
+                        { platformFor =
+                            PlatformSet [Identifier "Windows"],
+                          platformTo =
+                            PlatformSet
+                              [ Identifier "Linux",
+                                Identifier "macOS",
+                                Identifier "Windows"
+                              ]
+                        },
+                    block = [ ExprStat $ IdentifierExpr $ Identifier "mkdir" ]
+                  }
+              )
+          )
+
+    it "No Block" $ do
+      test topLevelDef "- action super $abc $def to {}"
+        `shouldBe` Right
+          ( ActionDefination
+              ( BlockDefination
+                  { name = Identifier "super",
+                    parameters = [Variable (Identifier "abc"), Variable (Identifier "def")],
+                    platformFilter =
+                      PlatformFilter
+                        { platformFor = AnyPlatform,
+                          platformTo = PlatformSet []
+                        },
+                    block = []
+                  }
+              )
+          )
+    it "No Block 2" $ do
+      test topLevelDef "- task super $abc $def for {}\n"
+        `shouldBe` Right
+          ( TaskDefination
+              ( BlockDefination
+                  { name = Identifier "super",
+                    parameters =
+                      [ Variable (Identifier "abc"),
+                        Variable (Identifier "def")
+                      ],
+                    platformFilter =
+                      PlatformFilter
+                        { platformFor = PlatformSet [],
+                          platformTo = AnyPlatform 
+                        },
+                    block = []
+                  }
+              )
+          )
 
 -- Parser
 testParser :: Spec
@@ -208,3 +273,4 @@ testParser = do
   expression
   statement
   topLevel
+  

@@ -9,7 +9,9 @@ exprStat :: Parser Statement
 exprStat = ExprStat <$> expr
 
 statBlock :: Parser [Statement]
-statBlock = between (string "{" *> wsle0) (wsle0 *> string "}") $ try stats
+statBlock =
+  between (string "{" *> wsle0) (wsle0 *> string "}") (try stats)
+  <?> "block"
 
 ifStat :: Parser Statement
 ifStat = do
@@ -45,11 +47,13 @@ ifStat = do
   let branches = (ifCondition, ifBlock) : elseifs
 
   return $ IfStat branches elseBlock
+  <?> "if statement"
 
 stat :: Parser Statement
 stat =
   choice
     [try ifStat, exprStat]
+  <?> "statement"
 
 stats :: Parser [Statement]
 stats = do
@@ -60,3 +64,4 @@ stats = do
     Just x -> do
       next <- try $ option [] (wsle1 *> stats)
       return $ x : next
+  <?> "statements"

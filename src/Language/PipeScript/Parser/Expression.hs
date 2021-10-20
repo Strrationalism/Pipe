@@ -14,6 +14,7 @@ atomicExpr =
       VariableExpr <$> variable,
       IdentifierExpr <$> identifier
     ]
+  <?> "atomic expr"
 
 expandExpr :: Parser Expression
 expandExpr = do
@@ -21,9 +22,12 @@ expandExpr = do
     [ try $ DoubleExpandExpr <$> (string "~~" *> wsle0 *> wrappedExpr),
       ExpandExpr <$> (string "~" *> wsle0 *> wrappedExpr)
     ]
+  <?> "expand expr"
 
 listExpr :: Parser Expression
-listExpr = ListExpr <$> between (char '[' *> wsle0) (try (wsle0 *> char ']')) (exprList False)
+listExpr = 
+  ListExpr <$> between (char '[' *> wsle0) (try (wsle0 *> char ']')) (exprList False)
+  <?> "list expr"
 
 applyExpr :: Bool -> Parser Expression
 applyExpr isTopLevel = do
@@ -32,6 +36,7 @@ applyExpr isTopLevel = do
     (left : right : rights) -> return $ ApplyExpr left $ right : rights
     [singleton] -> return singleton
     _ -> fail "Empty apply!"
+  <?> "apply expr"
 
 exprInner :: Bool -> Parser Expression
 exprInner isTopLevel =
@@ -42,6 +47,7 @@ exprInner isTopLevel =
       wrappedExpr,
       listExpr
     ]
+  <?> "expr"
 
 wrappedExpr :: Parser Expression
 wrappedExpr =
@@ -51,6 +57,7 @@ wrappedExpr =
       expandExpr,
       listExpr
     ]
+  <?> "expr"
 
 exprList :: Bool -> Parser [Expression]
 exprList isTopLevel = do
@@ -59,6 +66,7 @@ exprList isTopLevel = do
   case first of
     Nothing -> return []
     Just x -> (x :) <$> many (try (ws1c *> wrappedExpr))
+  <?> "expr list"
 
 expr :: Parser Expression
 expr = exprInner True

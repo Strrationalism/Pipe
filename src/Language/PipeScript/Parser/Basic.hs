@@ -35,6 +35,7 @@ identifier = do
   first <- first
   next <- many next
   return $ Identifier (first : next)
+  <?> "identifier"
   where
     first = choice [oneOf ['a' .. 'z'], oneOf ['A' .. 'Z'], char '_']
     next = choice [first, digitChar, char '-']
@@ -47,13 +48,16 @@ ws0 :: Parser ()
 ws0 = void $ many whiteSpace
 
 ws1 :: Parser ()
-ws1 = void $ some whiteSpace
+ws1 =
+  void (some whiteSpace)
+  <?> "whitespace"
 
 variable :: Parser Variable
 variable = do
   char '$'
   ws0
   Variable <$> identifier
+  <?> "variable"
 
 boolConstant :: Parser Bool
 boolConstant = do
@@ -61,12 +65,14 @@ boolConstant = do
   if choice == "true"
     then return True
     else return False
+  <?> "bool"
 
 intConstant :: Parser Int
 intConstant = do
   sig <- optionMaybe $ char '-'
   i <- some digitChar
   return $ read $ maybeToList sig ++ i
+  <?> "int"
 
 numberConstant :: Parser Double
 numberConstant = do
@@ -78,6 +84,7 @@ numberConstant = do
         [] -> "0"
         x -> x
   return $ read $ maybeToList sig ++ a ++ "." ++ bx
+  <?> "number"
 
 charInStringConstant :: Parser Char
 charInStringConstant = do
@@ -100,6 +107,7 @@ stringConstant = do
   str <- many charInStringConstant
   char '\"'
   return str
+  <?> "string"
 
 comment :: Parser ()
 comment =
@@ -113,6 +121,7 @@ lineEnd = do
   ws0
   void $ optionMaybe comment
   void endOfLine
+  <?> "line end"
 
 whiteSpaceOrLineEnd :: Parser ()
 whiteSpaceOrLineEnd = whiteSpace <|> lineEnd
@@ -121,4 +130,6 @@ wsle0 :: Parser ()
 wsle0 = void $ many whiteSpaceOrLineEnd
 
 wsle1 :: Parser ()
-wsle1 = void $ some whiteSpaceOrLineEnd
+wsle1 =
+  void (some whiteSpaceOrLineEnd)
+  <?> "whitespace or line end"
