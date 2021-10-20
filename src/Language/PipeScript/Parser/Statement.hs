@@ -51,7 +51,7 @@ ifStat = do
 
 stat :: Parser Statement
 stat =
-  choice
+  (try . choice)
     [try ifStat, exprStat]
   <?> "statement"
 

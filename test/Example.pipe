@@ -1,0 +1,56 @@
+# 将CreateFont定义为task，在构建依赖图的阶段会提前执行，可用于添加依赖和输出，一个task可以调用其他更多task
+- task CreateFont $ttfFile for { Windows, Linux } to Nintendo-Switch
+set $more (tail $ttfFile)
+set $ttfFile (head $ttfFile)
+set $outFile (changeExtension $ttfFile ".out")
+input $ttfFile
+output $outFile
+output ~~"ttfFile/*"
+makeTempDir $temp
+
+#if not (equals (len $more) 0) {
+#    CreateFont $more
+#}
+
+
+
+# CreateFont的具体实现，它可以直接使用task定义中的本地变量
+- operation CreateFont $ttfFile
+sdftool $ttfFile $temp
+spritepacker $temp $outFile
+
+- action build for Windows to Nintendo-Switch    # 这里是顶级定义“action”
+
+CreateFont "1.ttf"
+CreateFont "2.ttf"
+
+CreateFont ~[               # ~[为展开操作，将一个Task声明展开为多个Task
+    "3.ttf"
+    "4.ttf"
+    ~"All/*.ttf"      # 搜索所有文件
+    ~~"All/*.ttf"     # 递归搜索所有文件
+    [~"All/*.ttf"]    # 展开后作为参数列表，只展开一次
+]
+
+# 对于命令A，参数a、b、c，有以下代码：
+# A a ~[
+#   b1 c1
+#   b2 c2
+#   b3 c3
+# ]
+#
+# 可展开为：
+# A a b1 c1
+# A a b2 c2
+# A a b3 c3
+
+- before action build for Windows to Nintendo-Switch           # 在build之前执行，这是一个task
+set $out "./output"
+mkdir $out
+
+- after action build for Windows to Nintendo-Switch            # 在build之后执行
+
+
+- include "More.pipe"
+
+# 同一个顶级定义可以拆分写到不同位置

@@ -37,7 +37,7 @@ topLevelBlockDef titleParser packer = do
   ws1
   name <- identifier
   params <- many $ try (ws1 *> variable)
-  platFilter <- ws1 *> platformFilterDef
+  platFilter <- ws0 *> platformFilterDef
   mayHasBlock <- option False (True <$ lineEnd)
   block <- if mayHasBlock then option [] stats else return []
   let blockDef =
@@ -57,11 +57,10 @@ topLevelDef = do
   choice
     [ includeDef,
       topLevelBlockDef (void $ string "task") TaskDefination,
-      topLevelBlockDef (void $ string "action") ActionDefination,
-      try $
-        topLevelBlockDef
-          (string "before" *> ws1 <* string "action")
-          $ OperationDefination BeforeAction,
+      try $ topLevelBlockDef (void $ string "action") ActionDefination,
+      topLevelBlockDef
+        (string "before" *> ws1 <* string "action")
+        $ OperationDefination BeforeAction,
       try $
         topLevelBlockDef
           (string "after" *> ws1 <* string "action")

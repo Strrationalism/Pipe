@@ -31,11 +31,10 @@ digitChar :: Parser Char
 digitChar = oneOf ['0' .. '9']
 
 identifier :: Parser Identifier
-identifier = do
+identifier = (<?> "identifier") $ do
   first <- first
   next <- many next
   return $ Identifier (first : next)
-  <?> "identifier"
   where
     first = choice [oneOf ['a' .. 'z'], oneOf ['A' .. 'Z'], char '_']
     next = choice [first, digitChar, char '-']
@@ -60,12 +59,11 @@ variable = do
   <?> "variable"
 
 boolConstant :: Parser Bool
-boolConstant = do
+boolConstant = (<?> "bool") $ try $ do
   choice <- choice [string "true", string "false"]
   if choice == "true"
     then return True
     else return False
-  <?> "bool"
 
 intConstant :: Parser Int
 intConstant = do

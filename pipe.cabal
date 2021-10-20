@@ -20,6 +20,7 @@ library
                      , Language.PipeScript.Parser.Expression
                      , Language.PipeScript.Parser.Statement
                      , Language.PipeScript.Parser.TopLevel
+                     , Language.PipeScript.Parser
   build-depends:       base >= 4.7 && < 5
                      , text
                      , parsec

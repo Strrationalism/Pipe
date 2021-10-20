@@ -10,6 +10,7 @@ import Language.PipeScript.Parser.TopLevel (topLevelDef)
 import Test.Hspec
 import Test.QuickCheck
 import Text.Parsec
+import Data.Functor.Identity (Identity(Identity))
 
 test :: Parser a -> String -> Either ParseError a
 test parser = parse parser "test" . pack
@@ -130,11 +131,19 @@ expression =
           )
 
     it "ApplyExpr 3" $ do
-      test expr "(1\n 2\n 3)"
+      test expr "(set (add 1))"
         `shouldBe` Right
           ( ApplyExpr
-              (ConstantExpr $ ConstInt 1)
-              [ConstantExpr $ ConstInt 2, ConstantExpr $ ConstInt 3]
+              (IdentifierExpr $ Identifier "set")
+              [ApplyExpr (IdentifierExpr $ Identifier "add") [ ConstantExpr $ ConstInt 1]]
+          )
+
+    it "ApplyExpr 4" $ do
+      test expr "set (tail ttfFile)"
+        `shouldBe` Right
+          ( ApplyExpr
+              (IdentifierExpr $ Identifier "set")
+              [ ApplyExpr (IdentifierExpr $ Identifier "tail") [ IdentifierExpr $ Identifier "ttfFile"]]
           )
 
     it "ComplexExpr 1" $ do

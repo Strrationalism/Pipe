@@ -3,6 +3,7 @@ module Language.PipeScript.Parser.Expression (expr) where
 import Language.PipeScript
 import Language.PipeScript.Parser.Basic
 import Text.Parsec
+import Debug.Trace
 
 atomicExpr :: Parser Expression
 atomicExpr =
@@ -41,13 +42,12 @@ applyExpr isTopLevel = do
 exprInner :: Bool -> Parser Expression
 exprInner isTopLevel =
   choice
-    [ try $ applyExpr isTopLevel,
+    [ applyExpr isTopLevel,
       atomicExpr,
       expandExpr,
       wrappedExpr,
       listExpr
     ]
-  <?> "expr"
 
 wrappedExpr :: Parser Expression
 wrappedExpr =
@@ -57,7 +57,6 @@ wrappedExpr =
       expandExpr,
       listExpr
     ]
-  <?> "expr"
 
 exprList :: Bool -> Parser [Expression]
 exprList isTopLevel = do
