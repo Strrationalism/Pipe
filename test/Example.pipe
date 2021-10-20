@@ -8,9 +8,9 @@ output $outFile
 output ~~"ttfFile/*"
 makeTempDir $temp
 
-#if not (equals (len $more) 0) {
-#    CreateFont $more
-#}
+if not (equals (len $more) 0) {
+    CreateFont $more
+}
 
 
 

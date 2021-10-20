@@ -1,5 +1,6 @@
 module TestParser (testParser) where
 
+import Data.Functor.Identity (Identity (Identity))
 import Data.Text
 import GHC.Unicode (toLower)
 import Language.PipeScript
@@ -10,7 +11,6 @@ import Language.PipeScript.Parser.TopLevel (topLevelDef)
 import Test.Hspec
 import Test.QuickCheck
 import Text.Parsec
-import Data.Functor.Identity (Identity(Identity))
 
 test :: Parser a -> String -> Either ParseError a
 test parser = parse parser "test" . pack
@@ -135,7 +135,7 @@ expression =
         `shouldBe` Right
           ( ApplyExpr
               (IdentifierExpr $ Identifier "set")
-              [ApplyExpr (IdentifierExpr $ Identifier "add") [ ConstantExpr $ ConstInt 1]]
+              [ApplyExpr (IdentifierExpr $ Identifier "add") [ConstantExpr $ ConstInt 1]]
           )
 
     it "ApplyExpr 4" $ do
@@ -143,7 +143,7 @@ expression =
         `shouldBe` Right
           ( ApplyExpr
               (IdentifierExpr $ Identifier "set")
-              [ ApplyExpr (IdentifierExpr $ Identifier "tail") [ IdentifierExpr $ Identifier "ttfFile"]]
+              [ApplyExpr (IdentifierExpr $ Identifier "tail") [IdentifierExpr $ Identifier "ttfFile"]]
           )
 
     it "ComplexExpr 1" $ do
@@ -234,7 +234,7 @@ topLevel =
                                 Identifier "Windows"
                               ]
                         },
-                    block = [ ExprStat $ IdentifierExpr $ Identifier "mkdir" ]
+                    block = [ExprStat $ IdentifierExpr $ Identifier "mkdir"]
                   }
               )
           )
@@ -268,7 +268,7 @@ topLevel =
                     platformFilter =
                       PlatformFilter
                         { platformFor = PlatformSet [],
-                          platformTo = AnyPlatform 
+                          platformTo = AnyPlatform
                         },
                     block = []
                   }
@@ -282,4 +282,3 @@ testParser = do
   expression
   statement
   topLevel
-  
