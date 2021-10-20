@@ -23,8 +23,9 @@ import Data.Maybe (maybeToList)
 import GHC.Base (Alternative (some))
 import Language.PipeScript
 import Text.Parsec
+import Data.Text
 
-type Parser = Parsec String ()
+type Parser = Parsec Text ()
 
 digitChar :: Parser Char
 digitChar = oneOf ['0' .. '9']
@@ -112,12 +113,6 @@ lineEnd = do
   ws0
   void $ optionMaybe comment
   void endOfLine
-
-fileEnd :: Parser ()
-fileEnd = do
-  ws0
-  void $ optionMaybe comment
-  void eof
 
 whiteSpaceOrLineEnd :: Parser ()
 whiteSpaceOrLineEnd = whiteSpace <|> lineEnd

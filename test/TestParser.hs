@@ -1,18 +1,20 @@
 module TestParser (testParser) where
 
+import Data.Text
 import GHC.Unicode (toLower)
 import Language.PipeScript
 import Language.PipeScript.Parser.Basic
 import Language.PipeScript.Parser.Expression (expr)
+import Language.PipeScript.Parser.Statement (stats)
 import Test.Hspec
 import Test.QuickCheck
 import Text.Parsec
 
 test :: Parser a -> String -> Either ParseError a
-test parser = parse parser "test"
+test parser = parse parser "test" . pack
 
 -- Basic
-basic :: SpecWith ()
+basic :: Spec
 basic =
   describe "Basic Parser" $ do
     it "identifier 1" $ do
@@ -69,7 +71,7 @@ basic =
       test ws1 " " `shouldBe` Right ()
 
 -- Expression
-expression :: SpecWith ()
+expression :: Spec
 expression =
   describe "Expression Parser" $ do
     it "AtomicExpr Identifier" $ do
@@ -88,9 +90,9 @@ expression =
     it "AtomicExpr Constant Number" $ do
       test expr "12345." `shouldBe` Right (ConstantExpr $ ConstNumber 12345.0)
 
-    it "AtomicExpr Constant Bool" $
-      property $
-        \x -> test expr (toLower <$> show x) `shouldBe` Right (ConstantExpr $ ConstBool x)
+    it "AtomicExpr Constant Bool" $ do
+      test expr "true" `shouldBe` Right (ConstantExpr $ ConstBool True)
+      test expr "false" `shouldBe` Right (ConstantExpr $ ConstBool False)
 
     it "AtomicExpr Expand" $ do
       test expr "~\"abc\"" `shouldBe` Right (ExpandExpr $ ConstantExpr $ ConstStr "abc")
@@ -150,7 +152,49 @@ expression =
               ]
           )
 
+-- Statements
+statement :: Spec
+statement =
+  describe "Statement Parser" $ do
+    it "Simple Statement" $ do
+      test stats "mkdir \"abc\""
+        `shouldBe` Right
+          [ ExprStat
+              ( ApplyExpr
+                  (IdentifierExpr $ Identifier "mkdir")
+                  [ConstantExpr $ ConstStr "abc"]
+              )
+          ]
+
+    it "If Statement" $ do
+      test stats "if add { \n    mkdir }"
+        `shouldBe` Right
+          [ IfStat
+              [(IdentifierExpr $ Identifier "add", 
+                [ ExprStat $ IdentifierExpr (Identifier "mkdir") ])]
+              []
+          ]
+
+    it "If-Else Statement" $ do
+      test stats "if add { \n     } else { mkdir }"
+        `shouldBe` Right
+          [ IfStat
+              [ (IdentifierExpr $ Identifier "add", []) ]
+              [ ExprStat $ IdentifierExpr (Identifier "mkdir") ]
+          ]
+
+    it "If-ElseIf-Else Statement" $ do
+      test stats "if add { \n     } else if sub { mkdir } else {\n\n\n\n\n\n\n}"
+        `shouldBe` Right
+          [ IfStat
+              [ (IdentifierExpr $ Identifier "add", []),
+                (IdentifierExpr $ Identifier "sub", [ ExprStat $ IdentifierExpr (Identifier "mkdir") ]) ]
+              []
+          ]
+
 -- Parser
+testParser :: Spec
 testParser = do
   basic
   expression
+  statement

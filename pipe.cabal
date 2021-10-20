@@ -18,7 +18,9 @@ library
   exposed-modules:     Language.PipeScript
                      , Language.PipeScript.Parser.Basic
                      , Language.PipeScript.Parser.Expression
+                     , Language.PipeScript.Parser.Statement
   build-depends:       base >= 4.7 && < 5
+                     , text
                      , parsec
   default-language:    Haskell2010
 
@@ -39,6 +41,7 @@ test-suite pipe-test
                      , hspec
                      , QuickCheck
                      , parsec
+                     , text
   other-modules:       TestParser
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010

@@ -15,12 +15,12 @@ atomicExpr =
       IdentifierExpr <$> identifier
     ]
 
-
 expandExpr :: Parser Expression
 expandExpr = do
   choice
     [ try $ DoubleExpandExpr <$> (string "~~" *> wsle0 *> wrappedExpr),
-      ExpandExpr <$> (string "~" *> wsle0 *> wrappedExpr) ]
+      ExpandExpr <$> (string "~" *> wsle0 *> wrappedExpr)
+    ]
 
 listExpr :: Parser Expression
 listExpr = ListExpr <$> between (char '[' *> wsle0) (try (wsle0 *> char ']')) (exprList False)
@@ -28,9 +28,10 @@ listExpr = ListExpr <$> between (char '[' *> wsle0) (try (wsle0 *> char ']')) (e
 applyExpr :: Bool -> Parser Expression
 applyExpr isTopLevel = do
   a <- exprList isTopLevel
-  case a of (left:right:rights) -> return $ ApplyExpr left $ right : rights
-            [singleton] -> return singleton
-            _ -> fail "Empty apply!"
+  case a of
+    (left : right : rights) -> return $ ApplyExpr left $ right : rights
+    [singleton] -> return singleton
+    _ -> fail "Empty apply!"
 
 exprInner :: Bool -> Parser Expression
 exprInner isTopLevel =
@@ -39,7 +40,8 @@ exprInner isTopLevel =
       atomicExpr,
       expandExpr,
       wrappedExpr,
-      listExpr ]
+      listExpr
+    ]
 
 wrappedExpr :: Parser Expression
 wrappedExpr =
@@ -47,14 +49,17 @@ wrappedExpr =
     [ between (char '(' *> wsle0) (wsle0 *> char ')') $ exprInner False,
       atomicExpr,
       expandExpr,
-      listExpr ]
+      listExpr
+    ]
 
 exprList :: Bool -> Parser [Expression]
 exprList isTopLevel = do
   let ws1c = if isTopLevel then ws1 else wsle1
   first <- optionMaybe wrappedExpr
-  case first of Nothing -> return []
-                Just x -> (x:) <$> many (try (ws1c *> wrappedExpr))
-                
-expr :: Parser Expression 
+  case first of
+    Nothing -> return []
+    Just x -> (x :) <$> many (try (ws1c *> wrappedExpr))
+
+expr :: Parser Expression
 expr = exprInner True
+

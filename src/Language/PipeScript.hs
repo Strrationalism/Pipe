@@ -52,8 +52,8 @@ data Expression
   deriving (Eq, Read, Show)
 
 data Statement
-  = ExpressionStat Expression
-  | IfStat Expression [Statement] [Statement]
+  = ExprStat Expression
+  | IfStat [(Expression, [Statement])] [Statement]
   deriving (Eq, Read, Show)
 
 data BlockDefination = BlockDefination
