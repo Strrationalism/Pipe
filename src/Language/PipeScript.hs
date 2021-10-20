@@ -2,7 +2,6 @@ module Language.PipeScript
   ( Identifier (..),
     Variable (..),
     Constant (..),
-    Platform (..),
     PlatformSet (..),
     PlatformFilter (..),
     Expression (..),
@@ -20,15 +19,12 @@ newtype Identifier = Identifier String
 newtype Variable = Variable Identifier
   deriving (Eq, Read, Show)
 
-newtype Platform = Platform Identifier
-  deriving (Eq, Read, Show)
-
 data PlatformSet
   = AnyPlatform
-  | Platforms [Platform]
+  | PlatformSet [Identifier]
   deriving (Eq, Read, Show)
 
-data PlatformFilter = PlatformFromAndTo
+data PlatformFilter = PlatformFilter
   { platformFor :: PlatformSet,
     platformTo :: PlatformSet
   }
@@ -59,19 +55,19 @@ data Statement
 data BlockDefination = BlockDefination
   { name :: Identifier,
     parameters :: [Variable],
-    platformUsage :: PlatformFilter,
+    platformFilter :: PlatformFilter,
     block :: [Statement]
   }
   deriving (Eq, Read, Show)
 
 data OperationType
   = NormalOperation
-  | BeforeAction Identifier
-  | AfterAction Identifier
+  | BeforeAction
+  | AfterAction
   deriving (Eq, Read, Show)
 
 data TopLevel
-  = OperationDefination BlockDefination OperationType
+  = OperationDefination OperationType BlockDefination
   | TaskDefination BlockDefination
   | ActionDefination BlockDefination
   | Include String

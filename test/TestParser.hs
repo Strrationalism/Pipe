@@ -9,6 +9,7 @@ import Language.PipeScript.Parser.Statement (stats)
 import Test.Hspec
 import Test.QuickCheck
 import Text.Parsec
+import Language.PipeScript.Parser.TopLevel (topLevelDef)
 
 test :: Parser a -> String -> Either ParseError a
 test parser = parse parser "test" . pack
@@ -192,9 +193,18 @@ statement =
               []
           ]
 
+-- TopLevel
+topLevel :: Spec
+topLevel =
+  describe "Top Level Parser" $ do
+    it "Include" $ do
+      test topLevelDef "-include \"abc.pipe\"" 
+        `shouldBe` Right (Include "abc.pipe")
+
 -- Parser
 testParser :: Spec
 testParser = do
   basic
   expression
   statement
+  topLevel
