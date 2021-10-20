@@ -51,7 +51,7 @@ jobs:
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v2.2.4
       with:
-        name: Build Artifact on ${{ runner.os }}
+        name: Pipe for ${{ runner.os }}
         path: |
           pipe.exe
           pipe
