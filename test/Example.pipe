@@ -1,23 +1,23 @@
 # 将CreateFont定义为task，在构建依赖图的阶段会提前执行，可用于添加依赖和输出，一个task可以调用其他更多task
-- task CreateFont $ttfFile for { Windows, Linux } to Nintendo-Switch
-set $more (tail $ttfFile)
-set $ttfFile (head $ttfFile)
-set $outFile (changeExtension $ttfFile ".out")
-input $ttfFile
-output $outFile
+- task CreateFont %ttfFile% for { Windows, Linux } to Nintendo-Switch
+set %more% (tail %ttfFile%)
+set %ttfFile% (head %ttfFile%)
+set %outFile% (changeExtension %ttfFile% ".out")
+input %ttfFile%
+output %outFile%
 output ~~"ttfFile/*"
-makeTempDir $temp
+makeTempDir %temp%
 
-if not (equals (len $more) 0) {
-    CreateFont $more
+if not (equals (len %more%) 0) {
+    CreateFont %more%
 }
 
 
 
 # CreateFont的具体实现，它可以直接使用task定义中的本地变量
-- operation CreateFont $ttfFile
-sdftool $ttfFile $temp
-spritepacker $temp $outFile
+- operation CreateFont %ttfFile%
+sdftool %ttfFile% %temp%
+spritepacker %temp% %outFile%
 
 - action build for Windows to Nintendo-Switch    # 这里是顶级定义“action”
 
@@ -45,8 +45,8 @@ CreateFont ~[               # ~[为展开操作，将一个Task声明展开为�
 # A a b3 c3
 
 - before action build for Windows to Nintendo-Switch           # 在build之前执行，这是一个task
-set $out "./output"
-mkdir $out
+set %out% "./output"
+mkdir %out%
 
 - after action build for Windows to Nintendo-Switch            # 在build之后执行
 

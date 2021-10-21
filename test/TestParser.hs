@@ -29,7 +29,7 @@ basic =
       test identifier "a-123" `shouldBe` Right (Identifier "a-123")
 
     it "variable" $ do
-      test variable "$a-123_super" `shouldBe` Right (Variable (Identifier "a-123_super"))
+      test variable "%a-123_super%" `shouldBe` Right (Variable (Identifier "a-123_super"))
 
     it "bool true" $ do
       test boolConstant "true" `shouldBe` Right True
@@ -80,7 +80,7 @@ expression =
       test expr "abc" `shouldBe` Right (IdentifierExpr $ Identifier "abc")
 
     it "AtomicExpr Variable" $ do
-      test expr "$abc" `shouldBe` Right (VariableExpr $ Variable $ Identifier "abc")
+      test expr "%abc%" `shouldBe` Right (VariableExpr $ Variable $ Identifier "abc")
 
     it "AtomicExpr Constant Str" $ do
       test expr "\"abc\"" `shouldBe` Right (ConstantExpr $ ConstStr "abc")
@@ -213,7 +213,7 @@ topLevel =
       test topLevelDef "-include \"abc.pipe\""
         `shouldBe` Right (Include "abc.pipe")
     it "Complex" $ do
-      test topLevelDef "- before action super $abc $def for Windows to { Linux, macOS, Windows }\nmkdir"
+      test topLevelDef "- before action super %abc% %def% for Windows to { Linux, macOS, Windows }\nmkdir"
         `shouldBe` Right
           ( OperationDefination
               BeforeAction
@@ -240,7 +240,7 @@ topLevel =
           )
 
     it "No Block" $ do
-      test topLevelDef "- action super $abc $def to {}"
+      test topLevelDef "- action super %abc% %def% to {}"
         `shouldBe` Right
           ( ActionDefination
               ( BlockDefination
@@ -256,7 +256,7 @@ topLevel =
               )
           )
     it "No Block 2" $ do
-      test topLevelDef "- task super $abc $def for {}\n"
+      test topLevelDef "- task super %abc% %def% for {}\n"
         `shouldBe` Right
           ( TaskDefination
               ( BlockDefination

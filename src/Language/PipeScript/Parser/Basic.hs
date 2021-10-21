@@ -72,9 +72,10 @@ ws1 =
 variable :: Parser Variable
 variable =
   do
-    char '$'
-    ws0
-    Variable <$> identifier
+    char '%'
+    i <- identifier
+    char '%'
+    return $ Variable i
     <?> "variable"
 
 boolConstant :: Parser Bool
