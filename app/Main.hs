@@ -1,9 +1,10 @@
 module Main where
 
 import Language.PipeScript (AST)
-import System.Directory
 import System.Environment (getArgs)
 import qualified System.Info
+import Path
+import Path.IO
 
 data Argument
   = Argument
@@ -67,7 +68,7 @@ main = do
   case args of
     Help -> help
     Argument {} -> do
-      scriptExists <- doesFileExist "./build.pipe"
+      scriptExists <- parseRelFile "./build.pipe" >>= doesFileExist
       if not scriptExists
         then
           putStrLn "Error: \'./build.pipe\' not exists."
