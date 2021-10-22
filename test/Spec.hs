@@ -2,6 +2,7 @@ import Language.PipeScript.Parser
 import Test.Hspec
 import Test.QuickCheck
 import TestParser (testParser)
+import Path
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
 -- not needed for automatic spec discovery.
@@ -12,7 +13,8 @@ doHspec = hspec $ do
 main :: IO ()
 main = do
   putStrLn "= Test Load Example ="
-  p <- parsePipeScript "./test/Example.pipe"
+  script <- parseRelFile "./test/Example.pipe"
+  p <- parsePipeScript script
   case p of
     Left x -> print x
     Right x -> print x
