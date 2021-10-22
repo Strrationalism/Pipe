@@ -82,7 +82,7 @@ main = do
           putStrLn ("Error: " ++ show startupScript ++ " not exists.")
             >> putStrLn ""
             >> help
-            >> exitWith (ExitFailure 1)
+            >> exitWith (ExitFailure 2)
         else do
           scripts <- parsePipeScriptWithIncludes startupScript
           let (errs, scrs) = partitionEithers scripts
@@ -106,4 +106,4 @@ main = do
               let printError [] = return ()
                   printError (a : ls) = 
                     print a >> putStrLn "" >> printError ls
-              in printError errs >> exitWith (ExitFailure 2)
+              in printError errs >> exitWith (ExitFailure 3)
