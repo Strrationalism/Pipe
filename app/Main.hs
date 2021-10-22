@@ -14,6 +14,7 @@ import Path (parseRelFile)
 import Path.IO (doesFileExist)
 import System.Environment (getArgs)
 import qualified System.Info
+import System.Exit (exitWith, ExitCode (ExitFailure))
 
 data Argument
   = Argument
@@ -81,6 +82,7 @@ main = do
           putStrLn ("Error: " ++ show startupScript ++ " not exists.")
             >> putStrLn ""
             >> help
+            >> exitWith (ExitFailure 1)
         else do
           scripts <- parsePipeScriptWithIncludes startupScript
           let (errs, scrs) = partitionEithers scripts
@@ -88,7 +90,8 @@ main = do
             then
               let for = currentPlatform args
                   to = targetPlatform args
-                  nubScrs = nubBy (\s1 s2 -> scriptPath s1 == scriptPath s2) scrs
+                  isSamePath s1 s2 = scriptPath s1 == scriptPath s2
+                  nubScrs = nubBy isSamePath scrs
                   scrsCurPlat = onlyThisPlatform for to nubScrs
                   pipeCommandLine = actionNameAndArgs args
                   actionToStart = case pipeCommandLine of
@@ -99,7 +102,8 @@ main = do
                     _ : a -> a
                in print scrsCurPlat
                -- Start 'actionToStart' action with 'actionArguments'
-            else do
+            else
               let printError [] = return ()
-                  printError (a : ls) = print a >> putStrLn "" >> printError ls
-              printError errs
+                  printError (a : ls) = 
+                    print a >> putStrLn "" >> printError ls
+              in printError errs >> exitWith (ExitFailure 2)
