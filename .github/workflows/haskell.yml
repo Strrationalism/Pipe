@@ -15,8 +15,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-haskell@v1
-
+    - uses: haskell/actions/setup@v1.2
+      with:
+        ghc-version: "9.0.1"
+        cabal-version: "3.4"
+        
     - name: Cache
       uses: actions/cache@v1
       env:
@@ -28,7 +31,7 @@ jobs:
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
-
+          
     - name: Install dependencies
       run: |
         cabal update
@@ -36,14 +39,14 @@ jobs:
         
     - name: Build
       run: cabal build --enable-tests --enable-benchmarks all
-      
+
     - name: Run tests
       run: cabal test all
 
     - name: Copy Binary File
       if: ${{ runner.os == 'Windows' }}
       run: copy ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe.exe ./pipe.exe
-      
+
     - name: Copy Binary File
       if: ${{ runner.os != 'Windows' }}
       run: cp ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe ./pipe
@@ -58,4 +61,3 @@ jobs:
         path: |
           pipe.exe
           pipe
-
