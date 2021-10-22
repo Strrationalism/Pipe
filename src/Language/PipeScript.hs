@@ -70,7 +70,7 @@ data TopLevel
   = OperationDefination OperationType BlockDefination
   | TaskDefination BlockDefination
   | ActionDefination BlockDefination
-  | Include String
+  | Include FilePath
   deriving (Eq, Read, Show)
 
 type AST = [TopLevel]
