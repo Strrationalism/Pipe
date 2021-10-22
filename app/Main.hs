@@ -1,13 +1,19 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Main where
 
+import Data.Either (partitionEithers)
+import Data.List (nubBy)
 import Language.PipeScript (AST)
+import Language.PipeScript.Parser
+  ( onlyThisPlatform,
+    parsePipeScriptWithIncludes,
+    scriptPath
+  )
+import Path (parseRelFile)
+import Path.IO (doesFileExist)
 import System.Environment (getArgs)
 import qualified System.Info
-import Path
-import Path.IO
-import Language.PipeScript.Parser
-import Data.List
-import Data.Either (partitionEithers)
 
 data Argument
   = Argument
@@ -35,17 +41,14 @@ defaultArgument =
 parseArgs :: [String] -> Argument
 parseArgs ["--help"] = Help
 parseArgs args =
-  setDefaultActionName $ parseStep args defaultArgument
+  parseStep defaultArgument args
   where
-    parseStep [] prev = prev
-    parseStep ("--for" : os : more) prev = parseStep more $ prev {currentPlatform = os}
-    parseStep ("--to" : os : more) prev = parseStep more $ prev {targetPlatform = os}
-    parseStep ("--verbose" : more) prev = parseStep more $ prev {verbose = True}
-    parseStep (x : more) prev = parseStep more $ prev {actionNameAndArgs = actionNameAndArgs prev ++ [x]}
-    setDefaultActionName prev =
-      case prev of
-        Argument {actionNameAndArgs = []} -> prev {actionNameAndArgs = ["build"]}
-        x -> x
+    parseStep prev = \case
+      [] -> prev
+      "--for" : os : more -> parseStep (prev {currentPlatform = os}) more
+      "--to" : os : more -> parseStep (prev {targetPlatform = os}) more
+      "--verbose" : more -> parseStep (prev {verbose = True}) more
+      x : more -> parseStep (prev {actionNameAndArgs = actionNameAndArgs prev ++ [x]}) more
 
 help :: IO ()
 help =
@@ -75,19 +78,28 @@ main = do
       scriptExists <- doesFileExist startupScript
       if not scriptExists
         then
-          putStrLn ("Error: \'" ++ show startupScript ++ "\' not exists.")
+          putStrLn ("Error: " ++ show startupScript ++ " not exists.")
             >> putStrLn ""
             >> help
         else do
           scripts <- parsePipeScriptWithIncludes startupScript
           let (errs, scrs) = partitionEithers scripts
-          if null errs then
-            let for = currentPlatform args
-                to = targetPlatform args
-                nubScrs = nubBy (\s1 s2 -> scriptPath s1 == scriptPath s2) scrs
-                scrsCurPlat = onlyThisPlatform for to nubScrs in
-            print scrsCurPlat
-          else do
-            let printError [] = return ()
-                printError (a : ls) = print a >> putStrLn "" >> printError ls
-            printError errs
+          if null errs
+            then
+              let for = currentPlatform args
+                  to = targetPlatform args
+                  nubScrs = nubBy (\s1 s2 -> scriptPath s1 == scriptPath s2) scrs
+                  scrsCurPlat = onlyThisPlatform for to nubScrs
+                  pipeCommandLine = actionNameAndArgs args
+                  actionToStart = case pipeCommandLine of
+                    [] -> "build"
+                    a : _ -> a
+                  actionArguments = case pipeCommandLine of
+                    [] -> []
+                    _ : a -> a
+               in print scrsCurPlat
+               -- Start 'actionToStart' action with 'actionArguments'
+            else do
+              let printError [] = return ()
+                  printError (a : ls) = print a >> putStrLn "" >> printError ls
+              printError errs
