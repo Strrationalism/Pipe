@@ -5,6 +5,9 @@ import System.Environment (getArgs)
 import qualified System.Info
 import Path
 import Path.IO
+import Language.PipeScript.Parser
+import Data.List
+import Data.Either (partitionEithers)
 
 data Argument
   = Argument
@@ -68,10 +71,23 @@ main = do
   case args of
     Help -> help
     Argument {} -> do
-      scriptExists <- parseRelFile "./build.pipe" >>= doesFileExist
+      startupScript <- parseRelFile "./build.pipe"
+      scriptExists <- doesFileExist startupScript
       if not scriptExists
         then
-          putStrLn "Error: \'./build.pipe\' not exists."
+          putStrLn ("Error: \'" ++ show startupScript ++ "\' not exists.")
             >> putStrLn ""
             >> help
-        else putStrLn "God!!!!"
+        else do
+          scripts <- parsePipeScriptWithIncludes startupScript
+          let (errs, scrs) = partitionEithers scripts
+          if null errs then
+            let for = currentPlatform args
+                to = targetPlatform args
+                nubScrs = nubBy (\s1 s2 -> scriptPath s1 == scriptPath s2) scrs
+                scrsCurPlat = onlyThisPlatform for to nubScrs in
+            print scrsCurPlat
+          else do
+            let printError [] = return ()
+                printError (a : ls) = print a >> putStrLn "" >> printError ls
+            printError errs

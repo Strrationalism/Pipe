@@ -3,6 +3,9 @@ module Language.PipeScript.Parser
     parsePipeScript,
     parsePipeScriptWithIncludes,
     onlyThisPlatform,
+    scriptAST,
+    scriptPath,
+    scriptDir
   )
 where
 
@@ -13,16 +16,27 @@ import Language.PipeScript.Parser.Basic
 import Language.PipeScript.Parser.TopLevel (topLevelDef)
 import System.IO (IOMode (ReadMode), hClose, hSetEncoding, openFile, utf8)
 import Text.Parsec
+import Path
 
 parser :: Parser AST
-parser = wsle0 *> many topLevelDef <* wsle0 <* eof
+parser = many (wsle0 *> topLevelDef <* wsle0) <* eof
 
-data Script = Script FilePath AST deriving (Eq, Read, Show)
+data Script = Script (Path Rel File) AST deriving (Eq, Show)
 
-parsePipeScript :: FilePath -> IO (Either ParseError Script)
-parsePipeScript filePath =
-  fmap (Script filePath) <$> ast
+scriptPath :: Script -> Path Rel File
+scriptPath (Script path _) = path
+
+scriptDir :: Script -> Path Rel Dir
+scriptDir = parent . scriptPath
+
+scriptAST :: Script -> AST
+scriptAST (Script _ ast) = ast
+
+parsePipeScript :: Path Rel File -> IO (Either ParseError Script)
+parsePipeScript path =
+  fmap (Script path) <$> ast
   where
+    filePath = fromRelFile path
     ast = Text.Parsec.parse parser filePath <$> text
     text = do
       handle <- openFile filePath ReadMode
@@ -31,16 +45,19 @@ parsePipeScript filePath =
       hClose handle
       return input
 
-parsePipeScriptWithIncludes :: FilePath -> IO [Either ParseError Script]
-parsePipeScriptWithIncludes filePath = do
-  my <- parsePipeScript filePath
+parsePipeScriptWithIncludes :: Path Rel File -> IO [Either ParseError Script]
+parsePipeScriptWithIncludes path = do
+  my <- parsePipeScript path
   case my of
     Left x -> return [Left x]
-    Right (Script _ ast) -> (my :) <$> parseIncludes ast
-  where
-    parseInclude (Include x) = join <$> sequence [parsePipeScriptWithIncludes x]
-    parseInclude _ = return []
-    parseIncludes ast = fmap join $ sequence $ parseInclude <$> (ast :: AST)
+    Right script -> 
+      (my :) <$> parseIncludes (scriptAST script)
+      where
+        parseInclude (Include x) = do
+          subScriptPath <- (scriptDir script </>) <$> parseRelFile x
+          parsePipeScriptWithIncludes subScriptPath
+        parseInclude _ = return []
+        parseIncludes ast = fmap join $ sequence $ parseInclude <$> (ast :: AST)
 
 isPlatformInFilter :: String -> String -> PlatformFilter -> Bool
 isPlatformInFilter for to filter =
