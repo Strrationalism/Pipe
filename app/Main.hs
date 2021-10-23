@@ -10,6 +10,7 @@ import Language.PipeScript.Parser
     parsePipeScriptWithIncludes,
     scriptPath
   )
+import Language.PipeScript.Interpreter.Context
 import Path (parseRelFile)
 import Path.IO (doesFileExist)
 import System.Environment (getArgs)
@@ -100,7 +101,8 @@ main = do
                   actionArguments = case pipeCommandLine of
                     [] -> []
                     _ : a -> a
-               in print scrsCurPlat
+                  context = createContext scrsCurPlat
+               in print context
                -- Start 'actionToStart' action with 'actionArguments'
             else
               let printError [] = return ()
