@@ -8,7 +8,7 @@ import Debug.Trace
 atomicExpr :: Parser Expression
 atomicExpr =
   choice
-    [ try $ ConstantExpr . ConstNumber <$> numberConstant,
+    [ try $ ConstantExpr . ConstNum <$> numberConstant,
       ConstantExpr . ConstBool <$> boolConstant,
       ConstantExpr . ConstStr <$> stringConstant,
       ConstantExpr . ConstInt <$> intConstant,

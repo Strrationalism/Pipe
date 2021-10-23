@@ -13,11 +13,19 @@ module Language.PipeScript
   )
 where
 
+import Data.Hashable (Hashable, hashWithSalt)
+
 newtype Identifier = Identifier String
   deriving (Eq, Read, Show)
 
+instance Hashable Identifier where
+  hashWithSalt i (Identifier x) = hashWithSalt i x
+
 newtype Variable = Variable Identifier
   deriving (Eq, Read, Show)
+
+instance Hashable Variable where
+  hashWithSalt i (Variable x) = hashWithSalt i x
 
 data PlatformSet
   = AnyPlatform
@@ -33,7 +41,7 @@ data PlatformFilter = PlatformFilter
 data Constant
   = ConstInt Int
   | ConstStr String
-  | ConstNumber Double
+  | ConstNum Double
   | ConstBool Bool
   deriving (Eq, Read, Show)
 

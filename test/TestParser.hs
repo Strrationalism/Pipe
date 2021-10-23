@@ -90,7 +90,7 @@ expression =
         \x -> test expr (show x) `shouldBe` Right (ConstantExpr $ ConstInt x)
 
     it "AtomicExpr Constant Number" $ do
-      test expr "12345." `shouldBe` Right (ConstantExpr $ ConstNumber 12345.0)
+      test expr "12345." `shouldBe` Right (ConstantExpr $ ConstNum 12345.0)
 
     it "AtomicExpr Constant Bool" $ do
       test expr "true" `shouldBe` Right (ConstantExpr $ ConstBool True)

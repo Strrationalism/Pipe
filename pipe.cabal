@@ -29,6 +29,8 @@ library
                      , path-io
                      , unordered-containers
                      , mtl
+                     , hashable
+                     , process
   default-language:    Haskell2010
 
 executable pipe

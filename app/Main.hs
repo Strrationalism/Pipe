@@ -10,7 +10,7 @@ import Language.PipeScript.Parser
     parsePipeScriptWithIncludes,
     scriptPath
   )
-import Language.PipeScript.Interpreter.Context
+import Language.PipeScript.Interpreter.Context hiding (verbose)
 import Path (parseRelFile)
 import Path.IO (doesFileExist)
 import System.Environment (getArgs)
@@ -101,8 +101,8 @@ main = do
                   actionArguments = case pipeCommandLine of
                     [] -> []
                     _ : a -> a
-                  context = createContext scrsCurPlat
-               in print context
+                  context = createContext (verbose args) scrsCurPlat
+               in print "Context is Ready!"
                -- Start 'actionToStart' action with 'actionArguments'
             else
               let printError [] = return ()
