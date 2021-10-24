@@ -16,7 +16,10 @@ where
 import Data.Hashable (Hashable, hashWithSalt)
 
 newtype Identifier = Identifier String
-  deriving (Eq, Read, Show)
+  deriving (Eq, Read)
+
+instance Show Identifier where
+  show (Identifier x) = x
 
 instance Hashable Identifier where
   hashWithSalt i (Identifier x) = hashWithSalt i x
@@ -79,6 +82,15 @@ data TopLevel
   | TaskDefination BlockDefination
   | ActionDefination BlockDefination
   | Include FilePath
-  deriving (Eq, Read, Show)
+  deriving (Eq, Read)
+
+instance Show TopLevel where
+  show (Include f) = "include \"" ++ f ++ "\""
+  show (OperationDefination NormalOperation b) = "operation " ++ show (name b)
+  show (OperationDefination BeforeAction b) = "before action " ++ show (name b)
+  show (OperationDefination AfterAction b) = "after action" ++ show (name b)
+  show (ActionDefination b) = "action" ++ show (name b)
+  show (TaskDefination b) = "task " ++ show (name b)
+
 
 type AST = [TopLevel]

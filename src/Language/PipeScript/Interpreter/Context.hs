@@ -1,4 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections #-}
 
 module Language.PipeScript.Interpreter.Context
   ( Value (..),
@@ -12,17 +15,22 @@ module Language.PipeScript.Interpreter.Context
     variableScope,
     getVariable,
     getVariables,
-    getVariableEnvs
+    getVariableEnvs,
+    Task,
+    createTask,
   )
 where
 
 import Control.Monad.State.Class (MonadState)
 import Control.Monad.State.Strict
 import Data.HashMap.Strict
+import Data.Hashable (Hashable (hashWithSalt))
 import Language.PipeScript
 import Language.PipeScript.Parser
 import Path
 import System.Environment (getEnv, getEnvironment)
+import Data.List ( groupBy )
+import Data.HashSet (HashSet, empty)
 
 data Value
   = ValInt Int
@@ -44,16 +52,40 @@ instance Show Value where
   show (ValList x) = show x
   show ValUnit = show ()
 
-type PipeFunc = Interpreter [Value] -> Interpreter Value
+type PipeFunc = [Value] -> Interpreter Value
+
+data Task = Task
+  { inputFile :: [Path Abs File],
+    outputFile :: [Path Abs File],
+    forceDirty :: Bool,
+    operationName :: String,
+    arguments :: [Value],
+    context :: Context
+  }
+
+createTask :: String -> [Value] -> Task
+createTask operationName arguments =
+  Task
+    { inputFile = [],
+      outputFile = [],
+      forceDirty = False,
+      operationName = operationName,
+      arguments = arguments,
+      context = undefined
+    }
 
 data Context = Context
-  { scripts :: [Script],
+  { topLevels :: HashMap String [(Script, TopLevel)],
     variables :: HashMap Variable Value,
     funcs :: HashMap Identifier PipeFunc,
+    actionInited :: HashSet String,
     curScript :: Script,
     curTopLevel :: TopLevel,
     curStatement :: Statement,
-    verbose :: Bool
+    verbose :: Bool,
+    curTask :: Maybe Task,
+    tasks :: [Task],
+    isPreRun :: Bool
   }
 
 type Interpreter = StateT Context IO
@@ -61,14 +93,26 @@ type Interpreter = StateT Context IO
 createContext :: Bool -> [Script] -> Context
 createContext verbose scripts =
   Context
-    { scripts = scripts,
-      variables = empty,
-      funcs = empty,
+    { topLevels = fromList $ fmap (\x -> (, x) $ name' $ head x) groups,
+      variables = Data.HashMap.Strict.empty,
+      funcs = Data.HashMap.Strict.empty,
+      actionInited = Data.HashSet.empty,
       curScript = undefined,
       curTopLevel = undefined,
       curStatement = undefined,
-      verbose = verbose
+      verbose = verbose,
+      curTask = Nothing,
+      tasks = [],
+      isPreRun = True
     }
+  where name' :: (Script, TopLevel) -> String
+        name' (_, Include _) = error "Here is an include toplevel!"
+        name' (_, ActionDefination b) = show $ name b
+        name' (_, OperationDefination _ b) = show $ name b
+        name' (_, TaskDefination b) = show $ name b
+        convert script = (script, ) <$> scriptAST script
+        groups :: [[(Script, TopLevel)]]
+        groups = groupBy (\x y -> name' x == name' y) (scripts >>= convert)
 
 valueFromConstant :: Constant -> Value
 valueFromConstant = \case
@@ -79,7 +123,7 @@ valueFromConstant = \case
 
 setVariable :: Variable -> Value -> Interpreter ()
 setVariable name val =
-  modify $ \c -> c {variables = insert name val $ variables c}
+  modify $ \c -> c {variables = Data.HashMap.Strict.insert name val $ variables c}
 
 setVariables :: [(Variable, Value)] -> Interpreter ()
 setVariables [] = return ()
@@ -114,5 +158,4 @@ getVariableEnvs = do
   return $ ((\(name, x) -> (Variable $ Identifier name, ValStr x)) <$> envs) ++ vars
 
 putFunc :: Identifier -> PipeFunc -> Interpreter ()
-putFunc name f = modify $ \c -> c { funcs = insert name f $ funcs c }
-
+putFunc name f = modify $ \c -> c {funcs = Data.HashMap.Strict.insert name f $ funcs c}

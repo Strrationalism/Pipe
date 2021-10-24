@@ -34,15 +34,15 @@ CreateFont ~[               # ~[为展开操作，将一个Task声明展开为�
 
 # 对于命令A，参数a、b、c，有以下代码：
 # A a ~[
-#   b1 c1
-#   b2 c2
-#   b3 c3
+#   b1
+#   b2
+#   b3
 # ]
 #
 # 可展开为：
-# A a b1 c1
-# A a b2 c2
-# A a b3 c3
+# A a b1
+# A a b2
+# A a b3
 
 - before action build for Windows to Nintendo-Switch           # 在build之前执行，这是一个task
 set %out% "./output"

@@ -22,6 +22,8 @@ library
                      , Language.PipeScript.Parser.TopLevel
                      , Language.PipeScript.Parser
                      , Language.PipeScript.Interpreter.Context
+                     , Language.PipeScript.Interpreter.Eval
+                     
   build-depends:       base >= 4.7 && < 5
                      , text
                      , parsec

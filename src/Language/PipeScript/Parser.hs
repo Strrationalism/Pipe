@@ -72,7 +72,7 @@ topLevelsOnlyThisPlatform for to = filter f
     f (OperationDefination _ def) = isPlatformInFilter for to $ platformFilter def
     f (TaskDefination def) = isPlatformInFilter for to $ platformFilter def
     f (ActionDefination def) = isPlatformInFilter for to $ platformFilter def
-    f (Include _) = True
+    f (Include _) = False
 
 onlyThisPlatform :: String -> String -> [Script] -> [Script]
 onlyThisPlatform for to scrs = f <$> scrs
