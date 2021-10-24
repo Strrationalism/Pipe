@@ -18,6 +18,7 @@ module Language.PipeScript.Interpreter.Context
     getVariableEnvs,
     Task (..),
     createTask,
+    run
   )
 where
 
@@ -44,7 +45,7 @@ data Value
 
 instance Show Value where
   show (ValInt x) = show x
-  show (ValStr x) = show x
+  show (ValStr x) = x
   show (ValAbsDir x) = show x
   show (ValNum x) = show x
   show (ValBool True) = "true"
@@ -89,6 +90,9 @@ data Context = Context
   }
 
 type Interpreter = StateT Context IO
+
+run :: Interpreter () -> Context -> IO Context
+run i c = snd <$> runStateT i c
 
 createContext :: Bool -> [Script] -> Context
 createContext verbose scripts =
@@ -140,6 +144,7 @@ variableScope a = do
   return result
 
 getVariable :: Variable -> Interpreter Value
+getVariable (Variable (Identifier "cd")) = ValStr . toFilePath . scriptDir . curScript <$> get
 getVariable v = do
   vars <- variables <$> get
   case Data.HashMap.Strict.lookup v vars of

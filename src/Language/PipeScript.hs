@@ -88,8 +88,8 @@ instance Show TopLevel where
   show (Include f) = "include \"" ++ f ++ "\""
   show (OperationDefination NormalOperation b) = "operation " ++ show (name b)
   show (OperationDefination BeforeAction b) = "before action " ++ show (name b)
-  show (OperationDefination AfterAction b) = "after action" ++ show (name b)
-  show (ActionDefination b) = "action" ++ show (name b)
+  show (OperationDefination AfterAction b) = "after action " ++ show (name b)
+  show (ActionDefination b) = "action " ++ show (name b)
   show (TaskDefination b) = "task " ++ show (name b)
 
 

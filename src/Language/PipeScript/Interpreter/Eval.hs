@@ -1,30 +1,32 @@
-module Language.PipeScript.Interpreter.Eval where
+module Language.PipeScript.Interpreter.Eval (runTopLevelByName, runAfters) where
 
 import Control.Monad
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State.Class
 import Data.Foldable
 import Data.HashMap.Strict (member, (!?))
 import qualified Data.HashMap.Strict
 import qualified Data.HashSet
+import GHC.IO.Exception (ExitCode (ExitFailure, ExitSuccess))
 import Language.PipeScript
 import Language.PipeScript.Interpreter.Context
 import Language.PipeScript.Parser
+import Path (toFilePath)
+import System.Process hiding (runCommand)
+import System.Exit (exitFailure)
+import Debug.Trace (trace)
 
 evalError :: String -> Interpreter a
 evalError x = do
   script <- curScript <$> get
   topLevel <- curTopLevel <$> get
-  fail $
-    foldl'
-      (++)
-      ""
-      [ "In " ++ show (scriptPath script) ++ "(" ++ show topLevel ++ "):",
-        "  " ++ x,
-        ""
-      ]
+  liftIO . putStrLn $ "In " ++ show (scriptPath script) ++ " (" ++ show topLevel ++ "):"
+  liftIO . putStrLn $  "  " ++ x
+  liftIO . putStrLn $  ""
+  liftIO exitFailure
 
-evalStr :: String -> Interpreter String
-evalStr x =
+loadStr :: String -> Interpreter String
+loadStr x =
   eval x Nothing
   where
     eval [] Nothing = return ""
@@ -38,14 +40,40 @@ evalStr x =
       return $ show val ++ next
     eval (a : ls) (Just var) = eval ls $ Just $ var ++ [a]
 
+runCommand :: FilePath -> [String] -> Interpreter ExitCode
+runCommand command args = do
+  workdir <- scriptDir . curScript <$> get
+  e <- getVariableEnvs
+  let info =
+        CreateProcess
+          { cmdspec = RawCommand command args,
+            cwd = Just $ toFilePath workdir,
+            env = Just $ fmap (\(Variable (Identifier var), val) -> (var, show val)) e,
+            std_in = Inherit,
+            std_out = Inherit,
+            std_err = Inherit,
+            close_fds = False,
+            create_group = False,
+            delegate_ctlc = False,
+            detach_console = False,
+            create_new_console = False,
+            new_session = False,
+            use_process_jobs = False,
+            child_group = Nothing,
+            child_user = Nothing
+          }
+
+  (_, _, _, process) <- liftIO $ createProcess info
+  liftIO $ waitForProcess process
+
 evalExpr :: Expression -> Interpreter Value
 evalExpr (IdentifierExpr (Identifier name)) = return $ ValStr name
 evalExpr (VariableExpr var) = getVariable var
-evalExpr (ConstantExpr (ConstStr str)) = valueFromConstant . ConstStr <$> evalStr str
+evalExpr (ConstantExpr (ConstStr str)) = valueFromConstant . ConstStr <$> loadStr str
 evalExpr (ConstantExpr c) = return $ valueFromConstant c
 evalExpr (ExpandExpr _) = evalError "Expand Expression not supported yet."
 evalExpr (DoubleExpandExpr e) = evalExpr $ ExpandExpr e
-evalExpr (ApplyExpr (IdentifierExpr (Identifier "set")) [VariableExpr var, expr]) = do
+evalExpr (ApplyExpr (IdentifierExpr (Identifier "let")) [VariableExpr var, expr]) = do
   val <- evalExpr expr
   setVariable var val
   return ValUnit
@@ -77,7 +105,14 @@ evalExpr (ApplyExpr (IdentifierExpr (Identifier i)) args) = do
               then args' >>= runTopLevels i topLevelsToCall >> return ValUnit
               else evalError $ "Can not call " ++ i ++ " from a operation."
         else evalExpr (ApplyExpr (ConstantExpr $ ConstStr i) args)
-evalExpr (ApplyExpr (ConstantExpr (ConstStr file)) args) = undefined
+evalExpr (ApplyExpr (ConstantExpr (ConstStr file)) args) = do
+  cmd <- loadStr file
+  args <- sequence (evalExpr <$> args)
+  exitCode <- runCommand cmd $ fmap show args
+  case exitCode of
+    ExitSuccess -> return ValUnit
+    ExitFailure x ->
+      evalError $ cmd ++ " with arguments " ++ show args ++ " failed with exitcode " ++ show x ++ "."
 evalExpr (ApplyExpr left rights) = do
   left' <- evalExpr left
   case left' of
@@ -124,17 +159,18 @@ evalTopLevel script topLevel arguments = do
       modify $ \c -> c {curTask = prevTask}
       case task of
         Nothing -> return ()
-        Just t -> modify $ \c -> c {tasks = t { context = taskContext } : tasks c}
+        Just t -> modify $ \c -> c {tasks = t {context = taskContext} : tasks c}
     eval (OperationDefination t b) = evalBlock b
     evalBlock opBlock = do
       let params = parameters opBlock
       if length params == length arguments
         then variableScope $ do
           setVariables $ zip params arguments
+          vars <- getVariables
           evalStatements $ block opBlock
         else
           evalError $
-            "Can not match parameters " ++ show params ++ " and arguments " ++ show arguments ++ "."
+            "Can not match parameters " ++ show params ++ " with arguments " ++ show arguments ++ "."
 
 isTask :: [(Script, TopLevel)] -> Bool
 isTask x =
@@ -169,10 +205,10 @@ runTopLevels name tls args = do
     isTaskBlock _ = False
     takeTasks = filter isTaskBlock
     takeOps = filter $ not . isTaskBlock
-    isBeforeBlock (_, OperationDefination BeforeAction _) = True 
+    isBeforeBlock (_, OperationDefination BeforeAction _) = True
     isBeforeBlock _ = False
     takeBefore = filter isBeforeBlock
-    isActionBlock (_, ActionDefination _) = True 
+    isActionBlock (_, ActionDefination _) = True
     isActionBlock _ = False
     takeAction = filter isActionBlock
     tlsToRun
@@ -187,9 +223,19 @@ runTopLevels name tls args = do
           then return $ takeAction tls
           else do
             run [] $ takeBefore tls
-            modify $ \c -> c { actionInited = Data.HashSet.insert name $ actionInited c}
+            modify $ \c -> c {actionInited = Data.HashSet.insert name $ actionInited c}
             return $ takeAction tls
       | otherwise = return tls
 
 runTopLevelByName :: String -> [Value] -> Interpreter ()
 runTopLevelByName x args = getTopLevels x >>= \x' -> runTopLevels x x' args
+
+runAfters :: Interpreter ()
+runAfters = do
+  actions <- Data.HashSet.toList . actionInited <$> get
+  tls <- join <$> sequence (getTopLevels <$> actions)
+  let afters = filter isAfter tls
+      isAfter (_, OperationDefination AfterAction _) = True
+      isAfter _ = False
+      evalTopLevel' (script, topLevel) = evalTopLevel script topLevel []
+  sequence_ (evalTopLevel' <$> afters)

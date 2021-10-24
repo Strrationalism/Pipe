@@ -16,6 +16,10 @@ import Path.IO (doesFileExist)
 import System.Environment (getArgs)
 import qualified System.Info
 import System.Exit (exitWith, ExitCode (ExitFailure))
+import Language.PipeScript.Interpreter.Eval
+import Language.PipeScript.Interpreter.Context (run)
+import Control.Monad (void)
+import Language.PipeScript.Interpreter.Eval (runAfters)
 
 data Argument
   = Argument
@@ -102,8 +106,11 @@ main = do
                     [] -> []
                     _ : a -> a
                   context = createContext (verbose args) scrsCurPlat
-               in print "Context is Ready!"
-               -- Start 'actionToStart' action with 'actionArguments'
+                  interpreter = runTopLevelByName actionToStart $ fmap ValStr actionArguments
+               in do
+                  afterRunContext <- run interpreter context
+                  void $ run runAfters afterRunContext
+                  
             else
               let printError [] = return ()
                   printError (a : ls) = 
