@@ -34,6 +34,7 @@ data Argument
 os :: String
 os = case System.Info.os of
   "mingw32" -> "windows"
+  "darwin" -> "macos"
   x -> x
 
 defaultArgument :: Argument
