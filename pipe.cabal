@@ -23,6 +23,7 @@ library
                      , Language.PipeScript.Parser
                      , Language.PipeScript.Interpreter.Context
                      , Language.PipeScript.Interpreter.Eval
+                     , Language.PipeScript.Interpreter.Library
                      
   build-depends:       base >= 4.7 && < 5
                      , text

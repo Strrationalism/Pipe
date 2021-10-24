@@ -1,4 +1,4 @@
-module Language.PipeScript.Interpreter.Eval (runTopLevelByName, runAfters) where
+module Language.PipeScript.Interpreter.Eval (runTopLevelByName, runAfters, evalExpr) where
 
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)

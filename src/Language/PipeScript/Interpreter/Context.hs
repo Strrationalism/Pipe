@@ -17,6 +17,7 @@ module Language.PipeScript.Interpreter.Context
     getVariables,
     getVariableEnvs,
     Task (..),
+    PipeFunc,
     createTask,
     run
   )

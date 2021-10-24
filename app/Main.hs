@@ -19,6 +19,7 @@ import System.Exit (exitWith, ExitCode (ExitFailure))
 import Language.PipeScript.Interpreter.Eval
 import Language.PipeScript.Interpreter.Context (run)
 import Control.Monad (void)
+import Language.PipeScript.Interpreter.PipeLibrary (loadLibrary)
 
 
 data Argument
@@ -105,7 +106,7 @@ main = do
                   actionArguments = case pipeCommandLine of
                     [] -> []
                     _ : a -> a
-                  context = createContext (verbose args) scrsCurPlat
+                  context = loadLibrary $ createContext (verbose args) scrsCurPlat
                   interpreter = runTopLevelByName actionToStart $ fmap ValStr actionArguments
                in do
                   afterRunContext <- run interpreter context
