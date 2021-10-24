@@ -19,7 +19,7 @@ import System.Exit (exitWith, ExitCode (ExitFailure))
 import Language.PipeScript.Interpreter.Eval
 import Language.PipeScript.Interpreter.Context (run)
 import Control.Monad (void)
-import Language.PipeScript.Interpreter.Eval (runAfters)
+
 
 data Argument
   = Argument

@@ -14,7 +14,6 @@ import Language.PipeScript.Parser
 import Path (toFilePath)
 import System.Process hiding (runCommand)
 import System.Exit (exitFailure)
-import Debug.Trace (trace)
 
 evalError :: String -> Interpreter a
 evalError x = do

@@ -30,8 +30,9 @@ import Language.PipeScript
 import Language.PipeScript.Parser
 import Path
 import System.Environment (getEnv, getEnvironment)
-import Data.List ( groupBy )
+import Data.List ( groupBy, sortBy )
 import Data.HashSet (HashSet, empty)
+import Path.IO (getCurrentDir)
 
 data Value
   = ValInt Int
@@ -116,7 +117,9 @@ createContext verbose scripts =
         name' (_, TaskDefination b) = show $ name b
         convert script = (script, ) <$> scriptAST script
         groups :: [[(Script, TopLevel)]]
-        groups = groupBy (\x y -> name' x == name' y) (scripts >>= convert)
+        groups = 
+          groupBy (\x y -> name' x == name' y) $ 
+            sortBy (\a b -> compare (name' a) (name' b)) (scripts >>= convert)
 
 valueFromConstant :: Constant -> Value
 valueFromConstant = \case
@@ -144,7 +147,10 @@ variableScope a = do
   return result
 
 getVariable :: Variable -> Interpreter Value
-getVariable (Variable (Identifier "cd")) = ValStr . toFilePath . scriptDir . curScript <$> get
+getVariable (Variable (Identifier "cd")) = do 
+  rel <- scriptDir . curScript <$> get
+  cd <- getCurrentDir 
+  return $ ValStr $ toFilePath $ cd </> rel
 getVariable v = do
   vars <- variables <$> get
   case Data.HashMap.Strict.lookup v vars of
