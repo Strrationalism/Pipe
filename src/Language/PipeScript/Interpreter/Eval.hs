@@ -120,10 +120,11 @@ evalTopLevel script topLevel arguments = do
       modify $ \c -> c {curTask = Just $ createTask (show $ name b) arguments}
       evalBlock b
       task <- curTask <$> get
+      taskContext <- get
       modify $ \c -> c {curTask = prevTask}
       case task of
         Nothing -> return ()
-        Just t -> modify $ \c -> c {tasks = t : tasks c}
+        Just t -> modify $ \c -> c {tasks = t { context = taskContext } : tasks c}
     eval (OperationDefination t b) = evalBlock b
     evalBlock opBlock = do
       let params = parameters opBlock
@@ -158,17 +159,22 @@ getTopLevels name = do
     Nothing -> return []
     Just x -> return x
 
--- Warning!!! 需要处理after和before，各只执行一次
 runTopLevels :: String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
 runTopLevels name tls args = do
   tlsToRun >>= run args
   where
     run _ [] = return ()
     run args' ((scr, tp) : ls) = evalTopLevel scr tp args' >> run args' ls
-    takeTasks = undefined
-    takeOps = undefined
-    takeBefore = undefined :: a -> [(Script, TopLevel)]
-    takeAction = undefined
+    isTaskBlock (_, TaskDefination _) = True
+    isTaskBlock _ = False
+    takeTasks = filter isTaskBlock
+    takeOps = filter $ not . isTaskBlock
+    isBeforeBlock (_, OperationDefination BeforeAction _) = True 
+    isBeforeBlock _ = False
+    takeBefore = filter isBeforeBlock
+    isActionBlock (_, ActionDefination _) = True 
+    isActionBlock _ = False
+    takeAction = filter isActionBlock
     tlsToRun
       | isTask tls = do
         preRun <- isPreRun <$> get

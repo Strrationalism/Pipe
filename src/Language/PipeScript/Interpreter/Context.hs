@@ -16,7 +16,7 @@ module Language.PipeScript.Interpreter.Context
     getVariable,
     getVariables,
     getVariableEnvs,
-    Task,
+    Task (..),
     createTask,
   )
 where
