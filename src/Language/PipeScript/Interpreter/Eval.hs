@@ -17,13 +17,17 @@ import Path (toFilePath)
 import System.Exit (exitFailure)
 import System.IO
 import System.Process hiding (runCommand)
+import System.Console.Pretty
+import Debug.Trace (trace)
 
 evalError :: String -> Interpreter a
 evalError x = do
   script <- curScript <$> get
   topLevel <- curTopLevel <$> get
+  pretty <- liftIO supportsPretty 
+  let putStrLnStyled = if pretty then putStrLn . color Red else putStrLn
   liftIO $
-    putStrLn $
+    putStrLnStyled $
       unlines
         [ "In " ++ show (scriptPath script) ++ " (" ++ show topLevel ++ "):",
           "  " ++ x
@@ -42,19 +46,41 @@ loadStr x =
     eval ('%' : ls) (Just var) = do
       val <- getVariable $ Variable $ Identifier var
       next <- eval ls Nothing
-      return $ show val ++ next
+      return $ show' val ++ next
+      where show' (ValStr x) = x
+            show' x = show x
     eval (a : ls) (Just var) = eval ls $ Just $ var ++ [a]
 
 runCommand :: FilePath -> [String] -> Interpreter Value
 runCommand command args = do
   isVerbose <- verbose <$> get
   workdir <- scriptDir . curScript <$> get
+  let workdir' = toFilePath workdir
   e <- getVariableEnvs
-  let outStream = if isVerbose then Inherit else CreatePipe
+
+  liftIO $ when isVerbose $ do
+      pretty <- supportsPretty
+      if pretty 
+      then do
+        putStr $ color Cyan $ style Faint workdir'
+        putStr " "
+        putStr $ color Yellow $ style Bold command
+        putStr " "
+        mapM_ (\x -> putStr (color Yellow x) >> putStr " ") args
+        putStrLn ""
+      else do
+        putStr workdir'
+        putStr " "
+        putStr command
+        putStr " "
+        mapM_ (\x -> putStr x >> putStr " ") args
+        putStrLn ""
+
+  let outStream = if isVerbose then Inherit else NoStream
       info =
         CreateProcess
           { cmdspec = RawCommand command args,
-            cwd = Just $ toFilePath workdir,
+            cwd = Just workdir',
             env = Just $ fmap (\(Variable (Identifier var), val) -> (var, show val)) e,
             std_in = Inherit,
             std_out = outStream,
@@ -70,33 +96,26 @@ runCommand command args = do
             child_user = Nothing
           }
 
-  (_, out, err, process) <- liftIO $ createProcess info
+  (_, _, _, process) <- liftIO $ createProcess info
   exitCode <- liftIO $ waitForProcess process
   case exitCode of
     ExitSuccess -> return ()
     ExitFailure x -> do
-      stdout <- liftIO $ maybe (pure "") hShow out
-      stderr <- liftIO $ maybe (pure "") hShow err
       evalError $
         unlines
-          [ command ++ " with arguments " ++ show args ++ " failed with exitcode " ++ show x ++ ".",
-            "",
-            "stdout:",
-            stdout,
-            "",
-            "stderr:",
-            stderr,
+          [ command
+            ++ " with arguments "
+            ++ show args
+            ++ " failed with exitcode "
+            ++ show x
+            ++ ", run pipe with --verbose for more information.",
             ""
           ]
-  -- print stdout and error
-
-  liftIO $ forM_ out hClose
-  liftIO $ forM_ err hClose
-
+  when isVerbose $ liftIO $ putStrLn ""
   return ValUnit
 
 evalExpr :: Expression -> Interpreter Value
-evalExpr (IdentifierExpr (Identifier name)) = return $ ValStr name
+evalExpr (IdentifierExpr (Identifier name)) = return $ ValSymbol name
 evalExpr (VariableExpr var) = getVariable var
 evalExpr (ConstantExpr (ConstStr str)) = valueFromConstant . ConstStr <$> loadStr str
 evalExpr (ConstantExpr c) = return $ valueFromConstant c
@@ -106,8 +125,8 @@ evalExpr (ApplyExpr (IdentifierExpr (Identifier "let")) [VariableExpr var, expr]
   val <- evalExpr expr
   setVariable var val
   return ValUnit
-evalExpr (ApplyExpr (IdentifierExpr (Identifier "set")) _) =
-  evalError "Set must has a variable argument and a expression."
+evalExpr (ApplyExpr (IdentifierExpr (Identifier "let")) _) =
+  evalError "Let function must has a variable argument and an expression argument."
 evalExpr (ListExpr ls) = ValList <$> mapM evalExpr ls
 evalExpr (ApplyExpr (IdentifierExpr (Identifier i)) args) = do
   context <- get
@@ -136,8 +155,11 @@ evalExpr (ApplyExpr (IdentifierExpr (Identifier i)) args) = do
         else evalExpr (ApplyExpr (ConstantExpr $ ConstStr i) args)
 evalExpr (ApplyExpr (ConstantExpr (ConstStr file)) args) = do
   cmd <- loadStr file
-  args <- mapM evalExpr args
+  args <- expandLists <$> mapM evalExpr args
   runCommand cmd $ fmap show args
+  where expandLists [] = []
+        expandLists (ValList ls : next) = expandLists ls ++ expandLists next
+        expandLists (a : next) = a : expandLists next
 evalExpr (ApplyExpr left rights) = do
   left' <- evalExpr left
   case left' of
@@ -170,11 +192,19 @@ evalTopLevel' args (scr, tl) = evalTopLevel scr tl args
 
 evalTopLevel :: Script -> TopLevel -> [Value] -> Interpreter ()
 evalTopLevel script topLevel arguments = do
+  isVerbose <- verbose <$> get
+  liftIO $ when isVerbose $ do
+    pretty <- supportsPretty 
+    let args' = foldl' (\a b -> a ++ " " ++ b) "" $ fmap show arguments
+    let printStyle = if pretty then color Green . style Bold else id
+    putStrLn $ printStyle $ "- " ++ show topLevel ++ args'
+
   prevScript <- curScript <$> get
   prevTopLevel <- curTopLevel <$> get
   modify $ \c -> c {curTopLevel = topLevel, curScript = script}
   eval topLevel
   modify $ \c -> c {curTopLevel = prevTopLevel, curScript = prevScript}
+  when isVerbose $ liftIO $ putStrLn ""
   where
     eval (Include _) = return ()
     eval (ActionDefination b) = evalBlock b

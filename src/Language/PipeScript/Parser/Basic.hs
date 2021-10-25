@@ -30,32 +30,24 @@ type Parser = Parsec Text ()
 digitChar :: Parser Char
 digitChar = oneOf ['0' .. '9']
 
-keywords :: [String]
-keywords =
+notIdentifier :: [String]
+notIdentifier =
   [ "true",
     "false",
-    "for",
-    "to",
-    "if",
-    "else",
-    "action",
-    "task",
-    "operation",
-    "before",
-    "after"
+    "-"
   ]
 
 identifier :: Parser Identifier
-identifier = (<?> "identifier") $ do
+identifier = (<?> "identifier") $ try $ do
   first <- first
   next <- many next
   let iden = first : next
-  if iden `elem` keywords
+  if iden `elem` notIdentifier
     then fail "Identifier do not be a keyword."
     else return $ Identifier iden
   where
-    first = choice [oneOf ['a' .. 'z'], oneOf ['A' .. 'Z'], char '_']
-    next = choice [first, digitChar, char '-']
+    first = choice [oneOf ['a' .. 'z'], oneOf ['A' .. 'Z'], char '_', char '-', char '.']
+    next = choice [first, digitChar]
 
 -- Whitespaces
 whiteSpace :: Parser ()
@@ -87,15 +79,14 @@ boolConstant = (<?> "bool") $
       else return False
 
 intConstant :: Parser Int
-intConstant =
+intConstant = (<?> "int") $ try $
   do
     sig <- optionMaybe $ char '-'
     i <- some digitChar
     return $ read $ maybeToList sig ++ i
-    <?> "int"
 
 numberConstant :: Parser Double
-numberConstant =
+numberConstant = (<?> "number") $ try $
   do
     sig <- optionMaybe $ char '-'
     a <- some digitChar
@@ -105,7 +96,7 @@ numberConstant =
           [] -> "0"
           x -> x
     return $ read $ maybeToList sig ++ a ++ "." ++ bx
-    <?> "number"
+    
 
 charInStringConstant :: Parser Char
 charInStringConstant = do

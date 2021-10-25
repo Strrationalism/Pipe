@@ -28,6 +28,9 @@ basic =
     it "identifier 3" $ do
       test identifier "a-123" `shouldBe` Right (Identifier "a-123")
 
+    it "identifier 4" $ do
+      test identifier "-abc" `shouldBe` Right (Identifier "-abc")
+
     it "variable" $ do
       test variable "%a-123_super%" `shouldBe` Right (Variable (Identifier "a-123_super"))
 
@@ -210,7 +213,7 @@ topLevel :: Spec
 topLevel =
   describe "Top Level Parser" $ do
     it "Include" $ do
-      test topLevelDef "-include \"abc.pipe\""
+      test topLevelDef "- include \"abc.pipe\""
         `shouldBe` Right (Include "abc.pipe")
     it "Complex" $ do
       test topLevelDef "- before action super %abc% %def% for Windows to { Linux, macOS, Windows }\nmkdir"

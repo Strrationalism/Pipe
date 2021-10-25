@@ -37,6 +37,7 @@ import Path.IO (getCurrentDir)
 data Value
   = ValInt Int
   | ValStr String
+  | ValSymbol String
   | ValAbsDir (Path Abs Dir)
   | ValNum Double
   | ValBool Bool
@@ -46,7 +47,8 @@ data Value
 
 instance Show Value where
   show (ValInt x) = show x
-  show (ValStr x) = x
+  show (ValStr x) = "\"" ++ x ++ "\""
+  show (ValSymbol x) = x
   show (ValAbsDir x) = show x
   show (ValNum x) = show x
   show (ValBool True) = "true"
@@ -153,7 +155,7 @@ getVariable v = do
   vars <- variables <$> get
   case vars !? v of
     Just x -> return x
-    Nothing -> liftIO $ ValStr <$> getEnv vn
+    Nothing -> liftIO $ ValSymbol <$> getEnv vn
   where
     (Variable (Identifier vn)) = v
 
@@ -164,7 +166,7 @@ getVariableEnvs :: Interpreter [(Variable, Value)]
 getVariableEnvs = do
   vars <- getVariables
   envs <- liftIO getEnvironment
-  return $ ((\(name, x) -> (Variable $ Identifier name, ValStr x)) <$> envs) ++ vars
+  return $ ((\(name, x) -> (Variable $ Identifier name, ValSymbol x)) <$> envs) ++ vars
 
 putFunc :: Identifier -> PipeFunc -> Interpreter ()
 putFunc name f = modify $ \c -> c {funcs = insert name f $ funcs c}

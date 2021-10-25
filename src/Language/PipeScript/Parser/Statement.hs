@@ -53,12 +53,11 @@ ifStat =
 
 stat :: Parser Statement
 stat =
-  (try . choice)
+  (<?> "statement") $ try $ choice 
     [try ifStat, exprStat]
-    <?> "statement"
 
 stats :: Parser [Statement]
-stats =
+stats = (<?> "statements") $ try $
   do
     wsle0
     first <- optionMaybe stat
@@ -67,4 +66,4 @@ stats =
       Just x -> do
         next <- option [] $ try (wsle1 *> stats)
         return $ x : next
-    <?> "statements"
+    

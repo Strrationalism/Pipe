@@ -6,42 +6,38 @@ import Text.Parsec
 import Debug.Trace
 
 atomicExpr :: Parser Expression
-atomicExpr =
-  choice
-    [ try $ ConstantExpr . ConstNum <$> numberConstant,
-      ConstantExpr . ConstBool <$> boolConstant,
-      ConstantExpr . ConstStr <$> stringConstant,
-      ConstantExpr . ConstInt <$> intConstant,
-      VariableExpr <$> variable,
-      IdentifierExpr <$> identifier
-    ]
-  <?> "atomic expr"
+atomicExpr = (<?> "atomic expr") $ try $ choice
+  [ try $ ConstantExpr . ConstNum <$> numberConstant,
+    ConstantExpr . ConstBool <$> boolConstant,
+    ConstantExpr . ConstStr <$> stringConstant,
+    try $ ConstantExpr . ConstInt <$> intConstant,
+    VariableExpr <$> variable,
+    try $ IdentifierExpr <$> identifier
+  ]
+  
 
 expandExpr :: Parser Expression
-expandExpr = do
+expandExpr = (<?> "expand expr") $ try $ do
   choice
     [ try $ DoubleExpandExpr <$> (string "~~" *> wsle0 *> wrappedExpr),
       ExpandExpr <$> (string "~" *> wsle0 *> wrappedExpr)
     ]
-  <?> "expand expr"
 
 listExpr :: Parser Expression
-listExpr = 
+listExpr = (<?> "list expr") $ try $ 
   ListExpr <$> between (char '[' *> wsle0) (try (wsle0 *> char ']')) (exprList False)
-  <?> "list expr"
 
 applyExpr :: Bool -> Parser Expression
-applyExpr isTopLevel = do
+applyExpr isTopLevel = (<?> "apply expr") $ try $ do
   a <- exprList isTopLevel
   case a of
     (left : right : rights) -> return $ ApplyExpr left $ right : rights
     [singleton] -> return singleton
     _ -> fail "Empty apply!"
-  <?> "apply expr"
 
 exprInner :: Bool -> Parser Expression
 exprInner isTopLevel =
-  choice
+  try $ choice
     [ applyExpr isTopLevel,
       atomicExpr,
       expandExpr,
@@ -51,7 +47,7 @@ exprInner isTopLevel =
 
 wrappedExpr :: Parser Expression
 wrappedExpr =
-  choice
+  try $ choice
     [ between (char '(' *> wsle0) (wsle0 *> char ')') $ exprInner False,
       atomicExpr,
       expandExpr,
@@ -59,13 +55,12 @@ wrappedExpr =
     ]
 
 exprList :: Bool -> Parser [Expression]
-exprList isTopLevel = do
+exprList isTopLevel = (<?> "expr list") $ try $ do
   let ws1c = if isTopLevel then ws1 else wsle1
   first <- optionMaybe wrappedExpr
   case first of
     Nothing -> return []
     Just x -> (x :) <$> many (try (ws1c *> wrappedExpr))
-  <?> "expr list"
 
 expr :: Parser Expression
 expr = exprInner True

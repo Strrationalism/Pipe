@@ -32,7 +32,7 @@ platformFilterDef = do
           return $ PlatformSet $ x : more
 
 topLevelBlockDef :: Parser () -> (BlockDefination -> TopLevel) -> Parser TopLevel
-topLevelBlockDef titleParser packer = do
+topLevelBlockDef titleParser packer = (<?> "top level defination") $ try $ do
   titleParser
   ws1
   name <- identifier
@@ -48,12 +48,11 @@ topLevelBlockDef titleParser packer = do
             block = block
           }
   return $ packer blockDef
-  <?> "top level defination"
 
 topLevelDef :: Parser TopLevel
-topLevelDef = do
+topLevelDef = (<?> "top level defination") $ try $ do
   char '-'
-  ws0
+  ws1
   choice
     [ includeDef,
       topLevelBlockDef (void $ string "task") TaskDefination,
@@ -68,4 +67,4 @@ topLevelDef = do
       topLevelBlockDef (void $ string "operation")
           $ OperationDefination NormalOperation
     ]
-  <?> "top level defination"
+  
