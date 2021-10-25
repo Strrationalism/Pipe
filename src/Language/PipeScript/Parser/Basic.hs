@@ -43,7 +43,7 @@ identifier = (<?> "identifier") $ try $ do
   next <- many next
   let iden = first : next
   if iden `elem` notIdentifier
-    then fail "Identifier do not be a keyword."
+    then fail "Identifier should not be a keyword."
     else return $ Identifier iden
   where
     first = choice [oneOf ['a' .. 'z'], oneOf ['A' .. 'Z'], char '_', char '-', char '.']
