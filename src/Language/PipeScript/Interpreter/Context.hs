@@ -32,7 +32,6 @@ import Language.PipeScript.Parser
 import Path
 import System.Environment (getEnv, getEnvironment)
 import Data.List ( groupBy, sortBy )
-import Data.HashSet (HashSet, empty)
 import Path.IO (getCurrentDir)
 
 data Value
@@ -81,7 +80,6 @@ data Context = Context
   { topLevels :: HashMap String [(Script, TopLevel)],
     variables :: HashMap Variable Value,
     funcs :: HashMap Identifier PipeFunc,
-    actionInited :: HashSet String,
     curScript :: Script,
     curTopLevel :: TopLevel,
     curStatement :: Statement,
@@ -100,9 +98,8 @@ createContext :: Bool -> [Script] -> Context
 createContext verbose scripts =
   Context
     { topLevels = fromList $ fmap (\x -> (, x) $ name' $ head x) groups,
-      variables = Data.HashMap.Strict.empty,
-      funcs = Data.HashMap.Strict.empty,
-      actionInited = Data.HashSet.empty,
+      variables = empty,
+      funcs = empty,
       curScript = undefined,
       curTopLevel = undefined,
       curStatement = undefined,
@@ -131,7 +128,7 @@ valueFromConstant = \case
 
 setVariable :: Variable -> Value -> Interpreter ()
 setVariable name val =
-  modify $ \c -> c {variables = Data.HashMap.Strict.insert name val $ variables c}
+  modify $ \c -> c {variables = insert name val $ variables c}
 
 setVariables :: [(Variable, Value)] -> Interpreter ()
 setVariables [] = return ()
@@ -154,7 +151,7 @@ getVariable (Variable (Identifier "cd")) = do
   return $ ValStr $ toFilePath $ cd </> rel
 getVariable v = do
   vars <- variables <$> get
-  case Data.HashMap.Strict.lookup v vars of
+  case vars !? v of
     Just x -> return x
     Nothing -> liftIO $ ValStr <$> getEnv vn
   where
@@ -170,4 +167,4 @@ getVariableEnvs = do
   return $ ((\(name, x) -> (Variable $ Identifier name, ValStr x)) <$> envs) ++ vars
 
 putFunc :: Identifier -> PipeFunc -> Interpreter ()
-putFunc name f = modify $ \c -> c {funcs = Data.HashMap.Strict.insert name f $ funcs c}
+putFunc name f = modify $ \c -> c {funcs = insert name f $ funcs c}

@@ -1,4 +1,4 @@
-module Language.PipeScript.Interpreter.Eval (runTopLevelByName, runAfters, evalExpr) where
+module Language.PipeScript.Interpreter.Eval (runAction, evalExpr) where
 
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
@@ -78,10 +78,10 @@ evalExpr (ApplyExpr (IdentifierExpr (Identifier "let")) [VariableExpr var, expr]
   return ValUnit
 evalExpr (ApplyExpr (IdentifierExpr (Identifier "set")) _) =
   evalError "Set must has a variable argument and a expression."
-evalExpr (ListExpr ls) = ValList <$> sequence (evalExpr <$> ls)
+evalExpr (ListExpr ls) = ValList <$> mapM evalExpr ls
 evalExpr (ApplyExpr (IdentifierExpr (Identifier i)) args) = do
   context <- get
-  let args' = sequence (evalExpr <$> args)
+  let args' = mapM evalExpr args
   case Data.HashMap.Strict.lookup (Identifier i) $ funcs context of
     Just f -> args' >>= f
     Nothing -> do
@@ -106,7 +106,7 @@ evalExpr (ApplyExpr (IdentifierExpr (Identifier i)) args) = do
         else evalExpr (ApplyExpr (ConstantExpr $ ConstStr i) args)
 evalExpr (ApplyExpr (ConstantExpr (ConstStr file)) args) = do
   cmd <- loadStr file
-  args <- sequence (evalExpr <$> args)
+  args <- mapM evalExpr args
   exitCode <- runCommand cmd $ fmap show args
   case exitCode of
     ExitSuccess -> return ValUnit
@@ -138,6 +138,11 @@ evalStatement stat = do
         ValBool True -> evalStatements block
         ValBool False -> eval $ IfStat next defBranch
         _ -> evalError "If statement condition expression must return a bool value."
+
+
+
+evalTopLevel' :: [Value] -> (Script, TopLevel) -> Interpreter ()
+evalTopLevel' args (scr, tl) = evalTopLevel scr tl args
 
 evalTopLevel :: Script -> TopLevel -> [Value] -> Interpreter ()
 evalTopLevel script topLevel arguments = do
@@ -195,46 +200,46 @@ getTopLevels name = do
     Just x -> return x
 
 runTopLevels :: String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
-runTopLevels name tls args = do
-  tlsToRun >>= run args
+runTopLevels name tls args
+  | isTask tls = do
+      preRun <- isPreRun <$> get
+      if preRun
+        then run $ takeTasks tls
+        else run $ takeOps tls
+  | isAction tls = runAction' name tls args
+  | otherwise = run tls
   where
-    run _ [] = return ()
-    run args' ((scr, tp) : ls) = evalTopLevel scr tp args' >> run args' ls
+    run tls = mapM_ (evalTopLevel' args) tls
     isTaskBlock (_, TaskDefination _) = True
     isTaskBlock _ = False
     takeTasks = filter isTaskBlock
     takeOps = filter $ not . isTaskBlock
+
+runTopLevelByName :: String -> [Value] -> Interpreter ()
+runTopLevelByName x args = getTopLevels x >>= \x' -> runTopLevels x x' args
+
+runAction' :: String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
+runAction' name tls args = do
+  let befores = takeBefore tls
+      actions = takeAction tls
+      afters = takeAfter tls
+  mapM_ evalTopLevel'' befores
+  mapM_ evalTopLevel'' actions
+
+  -- Run Tasks HERE!!!!!!!!!!!!! --
+
+  mapM_ evalTopLevel'' afters
+  where
+    evalTopLevel'' = evalTopLevel' args
     isBeforeBlock (_, OperationDefination BeforeAction _) = True
     isBeforeBlock _ = False
     takeBefore = filter isBeforeBlock
     isActionBlock (_, ActionDefination _) = True
     isActionBlock _ = False
     takeAction = filter isActionBlock
-    tlsToRun
-      | isTask tls = do
-        preRun <- isPreRun <$> get
-        if preRun
-          then return $ takeTasks tls
-          else return $ takeOps tls
-      | isAction tls = do
-        initedActions <- actionInited <$> get
-        if name `Data.HashSet.member` initedActions
-          then return $ takeAction tls
-          else do
-            run [] $ takeBefore tls
-            modify $ \c -> c {actionInited = Data.HashSet.insert name $ actionInited c}
-            return $ takeAction tls
-      | otherwise = return tls
+    isAfterBlock (_, OperationDefination AfterAction _) = True 
+    isAfterBlock _ = False 
+    takeAfter = filter isAfterBlock
 
-runTopLevelByName :: String -> [Value] -> Interpreter ()
-runTopLevelByName x args = getTopLevels x >>= \x' -> runTopLevels x x' args
-
-runAfters :: Interpreter ()
-runAfters = do
-  actions <- Data.HashSet.toList . actionInited <$> get
-  tls <- join <$> sequence (getTopLevels <$> actions)
-  let afters = filter isAfter tls
-      isAfter (_, OperationDefination AfterAction _) = True
-      isAfter _ = False
-      evalTopLevel' (script, topLevel) = evalTopLevel script topLevel []
-  sequence_ (evalTopLevel' <$> afters)
+runAction :: String -> [Value] -> Interpreter ()
+runAction name args = getTopLevels name >>= \tls -> runAction' name tls args
