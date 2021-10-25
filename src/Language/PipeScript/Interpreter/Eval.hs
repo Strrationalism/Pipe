@@ -7,21 +7,27 @@ import Data.Foldable
 import Data.HashMap.Strict (member, (!?))
 import qualified Data.HashMap.Strict
 import qualified Data.HashSet
+import Data.Maybe
 import GHC.IO.Exception (ExitCode (ExitFailure, ExitSuccess))
+import GHC.IO.Handle (hClose)
 import Language.PipeScript
 import Language.PipeScript.Interpreter.Context
 import Language.PipeScript.Parser
 import Path (toFilePath)
-import System.Process hiding (runCommand)
 import System.Exit (exitFailure)
+import System.IO
+import System.Process hiding (runCommand)
 
 evalError :: String -> Interpreter a
 evalError x = do
   script <- curScript <$> get
   topLevel <- curTopLevel <$> get
-  liftIO . putStrLn $ "In " ++ show (scriptPath script) ++ " (" ++ show topLevel ++ "):"
-  liftIO . putStrLn $  "  " ++ x
-  liftIO . putStrLn $  ""
+  liftIO $
+    putStrLn $
+      unlines
+        [ "In " ++ show (scriptPath script) ++ " (" ++ show topLevel ++ "):",
+          "  " ++ x
+        ]
   liftIO exitFailure
 
 loadStr :: String -> Interpreter String
@@ -39,18 +45,20 @@ loadStr x =
       return $ show val ++ next
     eval (a : ls) (Just var) = eval ls $ Just $ var ++ [a]
 
-runCommand :: FilePath -> [String] -> Interpreter ExitCode
+runCommand :: FilePath -> [String] -> Interpreter Value
 runCommand command args = do
+  isVerbose <- verbose <$> get
   workdir <- scriptDir . curScript <$> get
   e <- getVariableEnvs
-  let info =
+  let outStream = if isVerbose then Inherit else CreatePipe
+      info =
         CreateProcess
           { cmdspec = RawCommand command args,
             cwd = Just $ toFilePath workdir,
             env = Just $ fmap (\(Variable (Identifier var), val) -> (var, show val)) e,
             std_in = Inherit,
-            std_out = Inherit,
-            std_err = Inherit,
+            std_out = outStream,
+            std_err = outStream,
             close_fds = False,
             create_group = False,
             delegate_ctlc = False,
@@ -62,8 +70,30 @@ runCommand command args = do
             child_user = Nothing
           }
 
-  (_, _, _, process) <- liftIO $ createProcess info
-  liftIO $ waitForProcess process
+  (_, out, err, process) <- liftIO $ createProcess info
+  exitCode <- liftIO $ waitForProcess process
+  case exitCode of
+    ExitSuccess -> return ()
+    ExitFailure x -> do
+      stdout <- liftIO $ maybe (pure "") hShow out
+      stderr <- liftIO $ maybe (pure "") hShow err
+      evalError $
+        unlines
+          [ command ++ " with arguments " ++ show args ++ " failed with exitcode " ++ show x ++ ".",
+            "",
+            "stdout:",
+            stdout,
+            "",
+            "stderr:",
+            stderr,
+            ""
+          ]
+  -- print stdout and error
+
+  liftIO $ forM_ out hClose
+  liftIO $ forM_ err hClose
+
+  return ValUnit
 
 evalExpr :: Expression -> Interpreter Value
 evalExpr (IdentifierExpr (Identifier name)) = return $ ValStr name
@@ -107,11 +137,7 @@ evalExpr (ApplyExpr (IdentifierExpr (Identifier i)) args) = do
 evalExpr (ApplyExpr (ConstantExpr (ConstStr file)) args) = do
   cmd <- loadStr file
   args <- mapM evalExpr args
-  exitCode <- runCommand cmd $ fmap show args
-  case exitCode of
-    ExitSuccess -> return ValUnit
-    ExitFailure x ->
-      evalError $ cmd ++ " with arguments " ++ show args ++ " failed with exitcode " ++ show x ++ "."
+  runCommand cmd $ fmap show args
 evalExpr (ApplyExpr left rights) = do
   left' <- evalExpr left
   case left' of
@@ -138,8 +164,6 @@ evalStatement stat = do
         ValBool True -> evalStatements block
         ValBool False -> eval $ IfStat next defBranch
         _ -> evalError "If statement condition expression must return a bool value."
-
-
 
 evalTopLevel' :: [Value] -> (Script, TopLevel) -> Interpreter ()
 evalTopLevel' args (scr, tl) = evalTopLevel scr tl args
@@ -202,10 +226,10 @@ getTopLevels name = do
 runTopLevels :: String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
 runTopLevels name tls args
   | isTask tls = do
-      preRun <- isPreRun <$> get
-      if preRun
-        then run $ takeTasks tls
-        else run $ takeOps tls
+    preRun <- isPreRun <$> get
+    if preRun
+      then run $ takeTasks tls
+      else run $ takeOps tls
   | isAction tls = runAction' name tls args
   | otherwise = run tls
   where
@@ -237,8 +261,8 @@ runAction' name tls args = do
     isActionBlock (_, ActionDefination _) = True
     isActionBlock _ = False
     takeAction = filter isActionBlock
-    isAfterBlock (_, OperationDefination AfterAction _) = True 
-    isAfterBlock _ = False 
+    isAfterBlock (_, OperationDefination AfterAction _) = True
+    isAfterBlock _ = False
     takeAfter = filter isAfterBlock
 
 runAction :: String -> [Value] -> Interpreter ()

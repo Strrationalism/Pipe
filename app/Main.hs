@@ -20,7 +20,6 @@ import Language.PipeScript.Interpreter.Eval
 import Language.PipeScript.Interpreter.Context (run)
 import Control.Monad (void)
 import Language.PipeScript.Interpreter.PipeLibrary (loadLibrary)
-import Language.PipeScript.Interpreter.Eval (runAction)
 
 
 data Argument
@@ -111,9 +110,8 @@ main = do
                   context = loadLibrary $ createContext (verbose args) scrsCurPlat
                   interpreter = runAction actionToStart $ fmap ValStr actionArguments
                in void $ run interpreter context
-                  
             else
               let printError [] = return ()
-                  printError (a : ls) = 
+                  printError (a : ls) =
                     print a >> putStrLn "" >> printError ls
               in printError errs >> exitWith (ExitFailure 3)
