@@ -121,13 +121,13 @@ evalExpr (ConstantExpr (ConstStr str)) = valueFromConstant . ConstStr <$> loadSt
 evalExpr (ConstantExpr c) = return $ valueFromConstant c
 evalExpr (ExpandExpr _) = evalError "Expand Expression not supported yet."
 evalExpr (DoubleExpandExpr e) = evalExpr $ ExpandExpr e
+evalExpr (ListExpr ls) = ValList <$> mapM evalExpr ls
 evalExpr (ApplyExpr (IdentifierExpr (Identifier "let")) [VariableExpr var, expr]) = do
   val <- evalExpr expr
   setVariable var val
   return ValUnit
 evalExpr (ApplyExpr (IdentifierExpr (Identifier "let")) _) =
   evalError "Let function must has a variable argument and an expression argument."
-evalExpr (ListExpr ls) = ValList <$> mapM evalExpr ls
 evalExpr (ApplyExpr (IdentifierExpr (Identifier i)) args) = do
   context <- get
   let args' = mapM evalExpr args
