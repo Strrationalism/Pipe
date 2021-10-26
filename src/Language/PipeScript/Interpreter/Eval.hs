@@ -114,13 +114,6 @@ runCommand command args = do
   when isVerbose $ liftIO $ putStrLn ""
   return ValUnit
 
-isExpandExpr :: Expression -> Bool 
-isExpandExpr (ExpandExpr _) = True 
-isExpandExpr _ = False
-
-findFirstExpandExpr :: [Expression] -> Maybe Expression
-findFirstExpandExpr = find isExpandExpr
-
 evalApplyExpr :: Expression -> [Expression] -> Interpreter Value
 evalApplyExpr (IdentifierExpr (Identifier "let")) [VariableExpr var, expr] = do
   val <- evalExpr expr
@@ -171,7 +164,6 @@ evalExpr (IdentifierExpr (Identifier name)) = return $ ValSymbol name
 evalExpr (VariableExpr var) = getVariable var
 evalExpr (ConstantExpr (ConstStr str)) = valueFromConstant . ConstStr <$> loadStr str
 evalExpr (ConstantExpr c) = return $ valueFromConstant c
-evalExpr (ExpandExpr _) = evalError "Expand Expression not supported yet."
 evalExpr (ListExpr ls) = ValList <$> mapM evalExpr ls
 evalExpr (ApplyExpr left rights) = evalApplyExpr left rights
 

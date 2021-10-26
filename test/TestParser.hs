@@ -99,9 +99,6 @@ expression =
       test expr "true" `shouldBe` Right (ConstantExpr $ ConstBool True)
       test expr "false" `shouldBe` Right (ConstantExpr $ ConstBool False)
 
-    it "AtomicExpr Expand" $ do
-      test expr "!\"abc\"" `shouldBe` Right (ExpandExpr $ ConstantExpr $ ConstStr "abc")
-
     it "ListExpr 1" $ do
       test expr "[([\n 1#Test \n 2 #test \n 3 \n ])]"
         `shouldBe` Right

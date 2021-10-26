@@ -52,7 +52,6 @@ data Expression
   = IdentifierExpr Identifier
   | VariableExpr Variable
   | ConstantExpr Constant
-  | ExpandExpr Expression
   | ApplyExpr Expression [Expression]
   | ListExpr [Expression]
   deriving (Eq, Read, Show)

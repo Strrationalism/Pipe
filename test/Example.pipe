@@ -24,25 +24,6 @@ spritepacker %temp% %outFile%
 CreateFont "1.ttf"
 CreateFont "2.ttf"
 
-CreateFont ~[               # ~[为展开操作，将一个Task声明展开为多个Task
-    "3.ttf"
-    "4.ttf"
-    ~"All/*.ttf"      # 搜索所有文件
-    ~~"All/*.ttf"     # 递归搜索所有文件
-    [~"All/*.ttf"]    # 展开后作为参数列表，只展开一次
-]
-
-# 对于命令A，参数a、b、c，有以下代码：
-# A a ~[
-#   b1
-#   b2
-#   b3
-# ]
-#
-# 可展开为：
-# A a b1
-# A a b2
-# A a b3
 
 - before action build for Windows to Nintendo-Switch           # 在build之前执行，这是一个task
 set %out% "./output"

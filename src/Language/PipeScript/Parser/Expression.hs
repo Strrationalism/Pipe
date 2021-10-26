@@ -15,11 +15,6 @@ atomicExpr = (<?> "atomic expr") $ try $ choice
     try $ IdentifierExpr <$> identifier
   ]
   
-
-expandExpr :: Parser Expression
-expandExpr = (<?> "expand expr") $ try $ 
-  ExpandExpr <$> (string "!" *> wsle0 *> wrappedExpr)
-
 listExpr :: Parser Expression
 listExpr = (<?> "list expr") $ try $ 
   ListExpr <$> between (char '[' *> wsle0) (try (wsle0 *> char ']')) (exprList False)
@@ -37,7 +32,6 @@ exprInner isTopLevel =
   try $ choice
     [ applyExpr isTopLevel,
       atomicExpr,
-      expandExpr,
       wrappedExpr,
       listExpr
     ]
@@ -47,7 +41,6 @@ wrappedExpr =
   try $ choice
     [ between (char '(' *> wsle0) (wsle0 *> char ')') $ exprInner False,
       atomicExpr,
-      expandExpr,
       listExpr
     ]
 
