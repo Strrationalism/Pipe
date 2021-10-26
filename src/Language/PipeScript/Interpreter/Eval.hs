@@ -116,7 +116,6 @@ runCommand command args = do
 
 isExpandExpr :: Expression -> Bool 
 isExpandExpr (ExpandExpr _) = True 
-isExpandExpr (DoubleExpandExpr _) = True
 isExpandExpr _ = False
 
 findFirstExpandExpr :: [Expression] -> Maybe Expression
@@ -173,7 +172,6 @@ evalExpr (VariableExpr var) = getVariable var
 evalExpr (ConstantExpr (ConstStr str)) = valueFromConstant . ConstStr <$> loadStr str
 evalExpr (ConstantExpr c) = return $ valueFromConstant c
 evalExpr (ExpandExpr _) = evalError "Expand Expression not supported yet."
-evalExpr (DoubleExpandExpr e) = evalExpr $ ExpandExpr e
 evalExpr (ListExpr ls) = ValList <$> mapM evalExpr ls
 evalExpr (ApplyExpr left rights) = evalApplyExpr left rights
 

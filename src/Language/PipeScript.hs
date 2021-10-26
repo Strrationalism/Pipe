@@ -53,7 +53,6 @@ data Expression
   | VariableExpr Variable
   | ConstantExpr Constant
   | ExpandExpr Expression
-  | DoubleExpandExpr Expression
   | ApplyExpr Expression [Expression]
   | ListExpr [Expression]
   deriving (Eq, Read, Show)

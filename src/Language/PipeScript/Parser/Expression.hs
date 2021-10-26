@@ -17,11 +17,8 @@ atomicExpr = (<?> "atomic expr") $ try $ choice
   
 
 expandExpr :: Parser Expression
-expandExpr = (<?> "expand expr") $ try $ do
-  choice
-    [ try $ DoubleExpandExpr <$> (string "~~" *> wsle0 *> wrappedExpr),
-      ExpandExpr <$> (string "~" *> wsle0 *> wrappedExpr)
-    ]
+expandExpr = (<?> "expand expr") $ try $ 
+  ExpandExpr <$> (string "!" *> wsle0 *> wrappedExpr)
 
 listExpr :: Parser Expression
 listExpr = (<?> "list expr") $ try $ 

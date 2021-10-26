@@ -100,10 +100,7 @@ expression =
       test expr "false" `shouldBe` Right (ConstantExpr $ ConstBool False)
 
     it "AtomicExpr Expand" $ do
-      test expr "~\"abc\"" `shouldBe` Right (ExpandExpr $ ConstantExpr $ ConstStr "abc")
-
-    it "AtomicExpr DoubleExpand" $ do
-      test expr "~~\"abc\"" `shouldBe` Right (DoubleExpandExpr $ ConstantExpr $ ConstStr "abc")
+      test expr "!\"abc\"" `shouldBe` Right (ExpandExpr $ ConstantExpr $ ConstStr "abc")
 
     it "ListExpr 1" $ do
       test expr "[([\n 1#Test \n 2 #test \n 3 \n ])]"
