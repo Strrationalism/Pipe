@@ -114,21 +114,22 @@ runCommand command args = do
   when isVerbose $ liftIO $ putStrLn ""
   return ValUnit
 
-evalExpr :: Expression -> Interpreter Value
-evalExpr (IdentifierExpr (Identifier name)) = return $ ValSymbol name
-evalExpr (VariableExpr var) = getVariable var
-evalExpr (ConstantExpr (ConstStr str)) = valueFromConstant . ConstStr <$> loadStr str
-evalExpr (ConstantExpr c) = return $ valueFromConstant c
-evalExpr (ExpandExpr _) = evalError "Expand Expression not supported yet."
-evalExpr (DoubleExpandExpr e) = evalExpr $ ExpandExpr e
-evalExpr (ListExpr ls) = ValList <$> mapM evalExpr ls
-evalExpr (ApplyExpr (IdentifierExpr (Identifier "let")) [VariableExpr var, expr]) = do
+isExpandExpr :: Expression -> Bool 
+isExpandExpr (ExpandExpr _) = True 
+isExpandExpr (DoubleExpandExpr _) = True
+isExpandExpr _ = False
+
+findFirstExpandExpr :: [Expression] -> Maybe Expression
+findFirstExpandExpr = find isExpandExpr
+
+evalApplyExpr :: Expression -> [Expression] -> Interpreter Value
+evalApplyExpr (IdentifierExpr (Identifier "let")) [VariableExpr var, expr] = do
   val <- evalExpr expr
   setVariable var val
   return ValUnit
-evalExpr (ApplyExpr (IdentifierExpr (Identifier "let")) _) =
+evalApplyExpr (IdentifierExpr (Identifier "let")) _ =
   evalError "Let function must has a variable argument and an expression argument."
-evalExpr (ApplyExpr (IdentifierExpr (Identifier i)) args) = do
+evalApplyExpr (IdentifierExpr (Identifier i)) args = do
   context <- get
   let args' = mapM evalExpr args
   case Data.HashMap.Strict.lookup (Identifier i) $ funcs context of
@@ -153,18 +154,29 @@ evalExpr (ApplyExpr (IdentifierExpr (Identifier i)) args) = do
               then args' >>= runTopLevels i topLevelsToCall >> return ValUnit
               else evalError $ "Can not call " ++ i ++ " from a operation."
         else evalExpr (ApplyExpr (ConstantExpr $ ConstStr i) args)
-evalExpr (ApplyExpr (ConstantExpr (ConstStr file)) args) = do
+evalApplyExpr (ConstantExpr (ConstStr file)) args = do
   cmd <- loadStr file
   args <- expandLists <$> mapM evalExpr args
   runCommand cmd $ fmap show args
   where expandLists [] = []
         expandLists (ValList ls : next) = expandLists ls ++ expandLists next
         expandLists (a : next) = a : expandLists next
-evalExpr (ApplyExpr left rights) = do
+evalApplyExpr left rights = do
   left' <- evalExpr left
   case left' of
     ValStr str -> evalExpr $ ApplyExpr (IdentifierExpr $ Identifier str) rights
     x -> evalError $ "Can not apply to \"" ++ show x ++ "\"."
+
+evalExpr :: Expression -> Interpreter Value
+evalExpr (IdentifierExpr (Identifier name)) = return $ ValSymbol name
+evalExpr (VariableExpr var) = getVariable var
+evalExpr (ConstantExpr (ConstStr str)) = valueFromConstant . ConstStr <$> loadStr str
+evalExpr (ConstantExpr c) = return $ valueFromConstant c
+evalExpr (ExpandExpr _) = evalError "Expand Expression not supported yet."
+evalExpr (DoubleExpandExpr e) = evalExpr $ ExpandExpr e
+evalExpr (ListExpr ls) = ValList <$> mapM evalExpr ls
+evalExpr (ApplyExpr left rights) = evalApplyExpr left rights
+
 
 evalStatements :: [Statement] -> Interpreter ()
 evalStatements = foldr' ((>>) . evalStatement) (return ())
