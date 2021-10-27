@@ -86,10 +86,10 @@ data Context = Context
     funcs :: HashMap Identifier PipeFunc,
     curScript :: Script,
     curTopLevel :: TopLevel,
-    curStatement :: Statement,
     verbose :: Bool,
     curTask :: Maybe Task,
     tasks :: [Task],
+    taskRunner :: [Task] -> IO (),
     isPreRun :: Bool
   }
 
@@ -113,18 +113,18 @@ currentWorkAbsDir = do
   curDir <- currentWorkDir
   return $ startupDir </> curDir
 
-createContext :: Bool -> [Script] -> Context
-createContext verbose scripts =
+createContext :: Bool -> [Script] -> ([Task] -> IO ()) -> Context
+createContext verbose scripts taskRunner =
   Context
     { topLevels = fromList $ fmap (\x -> (, x) $ name' $ head x) groups,
       variables = empty,
       funcs = empty,
       curScript = undefined,
       curTopLevel = undefined,
-      curStatement = undefined,
       verbose = verbose,
       curTask = Nothing,
       tasks = [],
+      taskRunner = taskRunner,
       isPreRun = True
     }
   where name' :: (Script, TopLevel) -> String

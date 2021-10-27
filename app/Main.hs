@@ -76,6 +76,9 @@ help =
             ""
           ]
 
+defaultTaskRunner :: [Task] -> IO ()
+defaultTaskRunner = mapM_ runTask
+  
 main :: IO ()
 main = do
   args <- parseArgs <$> getArgs
@@ -107,7 +110,7 @@ main = do
                   actionArguments = case pipeCommandLine of
                     [] -> []
                     _ : a -> a
-                  context = loadLibrary $ createContext (verbose args) scrsCurPlat
+                  context = loadLibrary $ createContext (verbose args) scrsCurPlat defaultTaskRunner
                   interpreter = runAction actionToStart $ fmap ValStr actionArguments
                in void $ run interpreter context
             else

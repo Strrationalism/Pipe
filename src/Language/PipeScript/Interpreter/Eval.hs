@@ -1,4 +1,4 @@
-module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError) where
+module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError, runTask) where
 
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
@@ -173,10 +173,7 @@ evalStatements = foldr' ((>>) . evalStatement) (return ())
 
 evalStatement :: Statement -> Interpreter ()
 evalStatement stat = do
-  prevStatement <- curStatement <$> get
-  modify $ \c -> c {curStatement = stat}
   eval stat
-  modify $ \c -> c {curStatement = prevStatement}
   where
     eval (ExprStat (IdentifierExpr x)) =
       eval $ ExprStat $ ApplyExpr (IdentifierExpr x) []
@@ -217,8 +214,8 @@ evalTopLevel script topLevel arguments = do
   when isVerbose $ liftIO $ putStrLn ""
   where
     eval (Include _) = return ()
-    eval (ActionDefination b) = evalBlock b
-    eval (TaskDefination b) = do
+    eval (ActionDefination b) = variableScope $ evalBlock b
+    eval (TaskDefination b) = variableScope $ do
       prevTask <- curTask <$> get
       modify $ \c -> c {curTask = Just $ createTask (show $ name b) arguments}
       evalBlock b
@@ -228,11 +225,11 @@ evalTopLevel script topLevel arguments = do
       case task of
         Nothing -> return ()
         Just t -> modify $ \c -> c {tasks = t {context = taskContext} : tasks c}
-    eval (OperationDefination t b) = evalBlock b
+    eval (OperationDefination t b) = variableScope $ evalBlock b
     evalBlock opBlock = do
       let params = parameters opBlock
       if length params == length arguments
-        then variableScope $ do
+        then do
           setVariables $ zip params arguments
           vars <- getVariables
           evalStatements $ block opBlock
@@ -282,6 +279,13 @@ runTopLevels name tls args
 runTopLevelByName :: String -> [Value] -> Interpreter ()
 runTopLevelByName x args = getTopLevels x >>= \x' -> runTopLevels x x' args
 
+runTask :: Task -> IO ()
+runTask task = 
+  void $ run interpreter $ (context task) { isPreRun = False }
+  where 
+    interpreter =
+      runTopLevelByName (operationName task) $ arguments task
+
 runAction' :: String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
 runAction' name tls args = do
   let befores = takeBefore tls
@@ -290,7 +294,9 @@ runAction' name tls args = do
   mapM_ evalTopLevel'' befores
   mapM_ evalTopLevel'' actions
 
-  -- Run Tasks HERE!!!!!!!!!!!!! --
+  t <- fmap tasks get
+  runner <- fmap taskRunner get
+  liftIO $ runner t
 
   mapM_ evalTopLevel'' afters
   where

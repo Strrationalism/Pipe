@@ -132,8 +132,12 @@ changeExtension args = evalError $ "change-extension: invalid arguments: " ++ sh
 combinePath :: PipeFunc
 combinePath [ValStr x, ValStr y] = do
   x' <- parseRelDir x
-  y' <- parseRelFile y
+  y' <- parseRelFile $ processSuffix y
   pure $ ValStr $ toFilePath (x' </> y')
+  where 
+    processSuffix x
+      | last x == '/' || last x == '\\' = processSuffix $ init x
+      | otherwise = x
 combinePath args = evalError $ "combine-path: invalid arguments: " ++ show args
 
 fileExists :: PipeFunc
@@ -167,6 +171,21 @@ getFiles = getFilesBase listDir
 allFiles :: PipeFunc
 allFiles = getFilesBase listDirRecur
 
+getDirsBase :: (Path Abs Dir -> IO ([Path Abs Dir], [Path Abs File])) -> PipeFunc
+getDirsBase lsDir [ValStr dir] = do
+  cd <- currentWorkAbsDir
+  dir <- parseRelDir dir
+  files <- liftIO $ Prelude.fst <$> lsDir (cd </> dir)
+  filesRel <- mapM (makeRelative cd) files
+  return $ ValList $ fmap (ValStr . toFilePath) filesRel
+getDirsBase _ args = evalError $ "get-dirs: invalid arguments: " ++ show args
+
+getDirs :: PipeFunc
+getDirs = getDirsBase listDir
+
+allDirs :: PipeFunc
+allDirs = getDirsBase listDirRecur
+
 loadLibrary :: Context -> Context
 loadLibrary c = c {funcs = fromList libi `union` funcs c}
   where
@@ -198,5 +217,7 @@ loadLibrary c = c {funcs = fromList libi `union` funcs c}
         ("file-exists", Language.PipeScript.Interpreter.PipeLibrary.fileExists),
         ("dir-exists", Language.PipeScript.Interpreter.PipeLibrary.dirExists),
         ("get-files", Language.PipeScript.Interpreter.PipeLibrary.getFiles),
-        ("all-files", Language.PipeScript.Interpreter.PipeLibrary.allFiles)
+        ("all-files", Language.PipeScript.Interpreter.PipeLibrary.allFiles),
+        ("get-dirs", Language.PipeScript.Interpreter.PipeLibrary.getDirs),
+        ("all-dirs", Language.PipeScript.Interpreter.PipeLibrary.allDirs)
       ]
