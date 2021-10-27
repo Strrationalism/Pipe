@@ -186,6 +186,39 @@ getDirs = getDirsBase listDir
 allDirs :: PipeFunc
 allDirs = getDirsBase listDirRecur
 
+ensureDir :: PipeFunc
+ensureDir [ValStr dir] = do
+  dir <- parseRelDir dir
+  cd <- currentWorkAbsDir
+  liftIO $ Path.IO.ensureDir (cd </> dir)
+  return ValUnit
+ensureDir args = evalError $ "ensure-dir: invalid arguments: " ++ show args
+
+copyFile :: PipeFunc
+copyFile [ValStr src, ValStr dst] = do
+  src' <- parseRelFile src
+  dst' <- parseRelFile dst
+  cd <- currentWorkAbsDir
+  liftIO $ Path.IO.copyFile (cd </> src') (cd </> dst')
+  return ValUnit
+copyFile args = evalError $ "copy-file: invalid arguments: " ++ show args
+
+deleteDir :: PipeFunc
+deleteDir [ValStr dir] = do
+  dir <- parseRelDir dir
+  cd <- currentWorkAbsDir
+  liftIO $ Path.IO.removeDir (cd </> dir)
+  return ValUnit
+deleteDir args = evalError $ "delete-dir: invalid arguments: " ++ show args
+
+deleteFile :: PipeFunc
+deleteFile [ValStr file] = do
+  file <- parseRelFile file
+  cd <- currentWorkAbsDir
+  liftIO $ Path.IO.removeFile (cd </> file)
+  return ValUnit
+deleteFile args = evalError $ "delete-file: invalid arguments: " ++ show args
+
 loadLibrary :: Context -> Context
 loadLibrary c = c {funcs = fromList libi `union` funcs c}
   where
@@ -219,5 +252,9 @@ loadLibrary c = c {funcs = fromList libi `union` funcs c}
         ("get-files", Language.PipeScript.Interpreter.PipeLibrary.getFiles),
         ("all-files", Language.PipeScript.Interpreter.PipeLibrary.allFiles),
         ("get-dirs", Language.PipeScript.Interpreter.PipeLibrary.getDirs),
-        ("all-dirs", Language.PipeScript.Interpreter.PipeLibrary.allDirs)
+        ("all-dirs", Language.PipeScript.Interpreter.PipeLibrary.allDirs),
+        ("ensure-dir", Language.PipeScript.Interpreter.PipeLibrary.ensureDir),
+        ("copy-file", Language.PipeScript.Interpreter.PipeLibrary.copyFile),
+        ("delete-dir", Language.PipeScript.Interpreter.PipeLibrary.deleteDir),
+        ("delete-file", Language.PipeScript.Interpreter.PipeLibrary.deleteFile)
       ]

@@ -3,7 +3,7 @@ version:             0.1.0.0
 -- synopsis:
 description:         Build System for game assets.
 homepage:            https://github.com/Strrationalism/Pipe
-license:             MIT
+license:             BSD3
 license-file:        LICENSE
 author:              Strrationalism
 maintainer:          853974536@qq.com
