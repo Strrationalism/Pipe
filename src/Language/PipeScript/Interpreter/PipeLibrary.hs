@@ -10,6 +10,7 @@ import Language.PipeScript.Interpreter.Eval
 import System.Process (runCommand)
 import Control.Monad.State.Class (modify)
 import Path
+import Path.IO
 import qualified GHC.Arr as Prelude
 
 echo :: PipeFunc
@@ -122,6 +123,50 @@ snd args = nth (ValInt 1 : args)
 trd :: PipeFunc
 trd args = nth (ValInt 2 : args)
 
+changeExtension :: PipeFunc
+changeExtension [ValStr ext, ValStr file] = do
+  path <- parseRelFile file
+  ValStr . toFilePath <$> ext `replaceExtension` path
+changeExtension args = evalError $ "change-extension: invalid arguments: " ++ show args
+
+combinePath :: PipeFunc
+combinePath [ValStr x, ValStr y] = do
+  x' <- parseRelDir x
+  y' <- parseRelFile y
+  pure $ ValStr $ toFilePath (x' </> y')
+combinePath args = evalError $ "combine-path: invalid arguments: " ++ show args
+
+fileExists :: PipeFunc
+fileExists [ValStr file] = do
+  dir <- currentWorkAbsDir
+  path <- parseRelFile file
+  exists <- liftIO $ doesFileExist (dir </> path)
+  pure $ ValBool exists
+fileExists args = evalError $ "file-exists: invalid arguments: " ++ show args
+
+dirExists :: PipeFunc
+dirExists [ValStr dir] = do
+  cd <- currentWorkAbsDir
+  dir <- parseRelDir dir
+  exists <- liftIO $ doesDirExist (cd </> dir)
+  pure $ ValBool exists
+dirExists args = evalError $ "dir-exists: invalid arguments: " ++ show args
+
+getFilesBase :: (Path Abs Dir -> IO ([Path Abs Dir], [Path Abs File])) -> PipeFunc
+getFilesBase lsDir [ValStr dir] = do
+  cd <- currentWorkAbsDir
+  dir <- parseRelDir dir
+  files <- liftIO $ Prelude.snd <$> lsDir (cd </> dir)
+  filesRel <- mapM (makeRelative cd) files
+  return $ ValList $ fmap (ValStr . toFilePath) filesRel
+getFilesBase _ args = evalError $ "get-files: invalid arguments: " ++ show args
+
+getFiles :: PipeFunc
+getFiles = getFilesBase listDir
+
+allFiles :: PipeFunc
+allFiles = getFilesBase listDirRecur
+
 loadLibrary :: Context -> Context
 loadLibrary c = c {funcs = fromList libi `union` funcs c}
   where
@@ -147,5 +192,11 @@ loadLibrary c = c {funcs = fromList libi `union` funcs c}
         ("mul", mul),
         ("sub", sub),
         ("div", Language.PipeScript.Interpreter.PipeLibrary.div),
-        ("range", Language.PipeScript.Interpreter.PipeLibrary.range)
+        ("range", Language.PipeScript.Interpreter.PipeLibrary.range),
+        ("change-extension", Language.PipeScript.Interpreter.PipeLibrary.changeExtension),
+        ("combine-path", Language.PipeScript.Interpreter.PipeLibrary.combinePath),
+        ("file-exists", Language.PipeScript.Interpreter.PipeLibrary.fileExists),
+        ("dir-exists", Language.PipeScript.Interpreter.PipeLibrary.dirExists),
+        ("get-files", Language.PipeScript.Interpreter.PipeLibrary.getFiles),
+        ("all-files", Language.PipeScript.Interpreter.PipeLibrary.allFiles)
       ]
