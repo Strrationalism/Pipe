@@ -59,6 +59,7 @@ data Expression
 data Statement
   = ExprStat Expression
   | IfStat [(Expression, [Statement])] [Statement]
+  | ForEachLoop Variable Expression [Statement]
   deriving (Eq, Read, Show)
 
 data BlockDefination = BlockDefination

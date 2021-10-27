@@ -8,7 +8,9 @@ import Language.PipeScript.Interpreter.Context
 import Language.PipeScript.Interpreter.Eval
 
 echo :: PipeFunc
-echo args = liftIO $ sequence_ (print <$> args) >> pure ValUnit
+echo args = liftIO $ sequence_ (putStrLn . show' <$> args) >> pure ValUnit
+  where show' (ValStr x) = x
+        show' x = show x
 
 loadLibrary :: Context -> Context
 loadLibrary c = c {funcs = fromList libi `union` funcs c}

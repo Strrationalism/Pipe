@@ -188,6 +188,14 @@ evalStatement stat = do
         ValBool True -> evalStatements block
         ValBool False -> eval $ IfStat next defBranch
         _ -> evalError "If statement condition expression must return a bool value."
+    eval (ForEachLoop loopVar lsExpr block) = do
+      ls <- evalExpr lsExpr
+      case ls of
+        ValList ls' -> do
+          forM_ ls' $ \val -> do
+            setVariable loopVar val
+            evalStatements block
+        _ -> evalError "ForEachLoop loop variable must be a list."
 
 evalTopLevel' :: [Value] -> (Script, TopLevel) -> Interpreter ()
 evalTopLevel' args (scr, tl) = evalTopLevel scr tl args

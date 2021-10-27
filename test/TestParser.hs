@@ -202,6 +202,13 @@ statement =
               []
           ]
 
+    it "For-Each Loop Statement" $ do
+      test stats "for %a% in ls { Process %a% }"
+        `shouldBe` Right 
+          [ForEachLoop (Variable $ Identifier "a") (IdentifierExpr $ Identifier "ls") 
+              [ ExprStat (ApplyExpr (IdentifierExpr $ Identifier "Process") 
+                [VariableExpr $ Variable $ Identifier "a"]) ]]
+
 -- TopLevel
 topLevel :: Spec
 topLevel =

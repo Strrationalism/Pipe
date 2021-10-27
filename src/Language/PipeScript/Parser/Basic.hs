@@ -34,6 +34,14 @@ notIdentifier :: [String]
 notIdentifier =
   [ "true",
     "false",
+    "for",
+    "if",
+    "in",
+    "action",
+    "task",
+    "operation",
+    "before",
+    "after",
     "-"
   ]
 
