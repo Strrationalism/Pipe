@@ -1,4 +1,4 @@
-module Language.PipeScript.Interpreter.Eval (runAction, evalExpr) where
+module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError) where
 
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
@@ -192,9 +192,10 @@ evalStatement stat = do
       ls <- evalExpr lsExpr
       case ls of
         ValList ls' -> do
-          forM_ ls' $ \val -> do
-            setVariable loopVar val
-            evalStatements block
+          variableScope $ do
+            forM_ ls' $ \val -> do
+              setVariable loopVar val
+              evalStatements block
         _ -> evalError "ForEachLoop loop variable must be a list."
 
 evalTopLevel' :: [Value] -> (Script, TopLevel) -> Interpreter ()

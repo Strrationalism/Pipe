@@ -1,7 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TupleSections #-}
 
 module Language.PipeScript.Interpreter.Context
   ( Value (..),
@@ -19,6 +17,9 @@ module Language.PipeScript.Interpreter.Context
     Task (..),
     PipeFunc,
     createTask,
+    modifyCurrentTask,
+    currentWorkDir,
+    currentWorkAbsDir,
     run
   )
 where
@@ -33,6 +34,7 @@ import Path
 import System.Environment (getEnv, getEnvironment)
 import Data.List ( groupBy, sortBy )
 import Path.IO (getCurrentDir)
+import Data.Maybe (fromMaybe)
 
 data Value
   = ValInt Int
@@ -59,8 +61,8 @@ instance Show Value where
 type PipeFunc = [Value] -> Interpreter Value
 
 data Task = Task
-  { inputFile :: [Path Abs File],
-    outputFile :: [Path Abs File],
+  { inputFiles :: [Path Abs File],
+    outputFiles :: [Path Abs File],
     forceDirty :: Bool,
     operationName :: String,
     arguments :: [Value],
@@ -70,8 +72,8 @@ data Task = Task
 createTask :: String -> [Value] -> Task
 createTask operationName arguments =
   Task
-    { inputFile = [],
-      outputFile = [],
+    { inputFiles = [],
+      outputFiles = [],
       forceDirty = False,
       operationName = operationName,
       arguments = arguments,
@@ -96,6 +98,21 @@ type Interpreter = StateT Context IO
 run :: Interpreter () -> Context -> IO Context
 run i c = snd <$> runStateT i c
 
+modifyCurrentTask :: (Task -> Task) -> Interpreter ()
+modifyCurrentTask f = do
+  modify $ \c -> c {curTask = f <$> curTask c }
+
+currentWorkDir :: Interpreter (Path Rel Dir)
+currentWorkDir = do
+  script <- curScript <$> get
+  pure $ scriptDir script
+
+currentWorkAbsDir :: Interpreter (Path Abs Dir)
+currentWorkAbsDir = do
+  startupDir <- getCurrentDir
+  curDir <- currentWorkDir
+  return $ startupDir </> curDir
+
 createContext :: Bool -> [Script] -> Context
 createContext verbose scripts =
   Context
@@ -117,8 +134,8 @@ createContext verbose scripts =
         name' (_, TaskDefination b) = show $ name b
         convert script = (script, ) <$> scriptAST script
         groups :: [[(Script, TopLevel)]]
-        groups = 
-          groupBy (\x y -> name' x == name' y) $ 
+        groups =
+          groupBy (\x y -> name' x == name' y) $
             sortBy (\a b -> compare (name' a) (name' b)) (scripts >>= convert)
 
 valueFromConstant :: Constant -> Value
@@ -147,9 +164,9 @@ variableScope a = do
   return result
 
 getVariable :: Variable -> Interpreter Value
-getVariable (Variable (Identifier "cd")) = do 
+getVariable (Variable (Identifier "cd")) = do
   rel <- scriptDir . curScript <$> get
-  cd <- getCurrentDir 
+  cd <- getCurrentDir
   return $ ValStr $ toFilePath $ cd </> rel
 getVariable v = do
   vars <- variables <$> get
