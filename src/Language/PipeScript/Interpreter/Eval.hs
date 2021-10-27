@@ -115,12 +115,12 @@ runCommand command args = do
   return ValUnit
 
 evalApplyExpr :: Expression -> [Expression] -> Interpreter Value
-evalApplyExpr (IdentifierExpr (Identifier "let")) [VariableExpr var, expr] = do
+evalApplyExpr (IdentifierExpr (Identifier "set")) [VariableExpr var, expr] = do
   val <- evalExpr expr
   setVariable var val
   return ValUnit
-evalApplyExpr (IdentifierExpr (Identifier "let")) _ =
-  evalError "Let function must has a variable argument and an expression argument."
+evalApplyExpr (IdentifierExpr (Identifier "set")) _ =
+  evalError "Set function must has a variable argument and an expression argument."
 evalApplyExpr (IdentifierExpr (Identifier i)) args = do
   context <- get
   let args' = mapM evalExpr args
@@ -192,7 +192,7 @@ evalStatement stat = do
       ls <- evalExpr lsExpr
       case ls of
         ValList ls' -> do
-          forM_ ls' $ \val -> variableScope $ do 
+          forM_ ls' $ \val -> do 
             setVariable loopVar val
             evalStatements block
         _ -> evalError "ForEachLoop loop variable must be a list."
