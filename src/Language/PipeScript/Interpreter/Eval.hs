@@ -192,10 +192,9 @@ evalStatement stat = do
       ls <- evalExpr lsExpr
       case ls of
         ValList ls' -> do
-          variableScope $ do
-            forM_ ls' $ \val -> do
-              setVariable loopVar val
-              evalStatements block
+          forM_ ls' $ \val -> variableScope $ do 
+            setVariable loopVar val
+            evalStatements block
         _ -> evalError "ForEachLoop loop variable must be a list."
 
 evalTopLevel' :: [Value] -> (Script, TopLevel) -> Interpreter ()
