@@ -41,15 +41,18 @@ takeTask n (TaskSet tasks plannedOutput alreadyOutput) =
     Nothing -> pure ([], TaskSet tasks plannedOutput alreadyOutput)
     Just task -> do
       task' <- testTask task
-      (task'', TaskSet remainTasks plannedOutput' alreadyOutput') <-
-            takeTask (n - 1) $ TaskSet (Data.List.delete task tasks) plannedOutput alreadyOutput
-      let outTasks = task' : task''
-          alreadyOutput'' = 
-            if forceDirty task' 
-              then alreadyOutput' `union` fromList (outputFiles task)
-              else alreadyOutput'
-          plannedOutput'' = plannedOutput' `difference` fromList (outputFiles task)
-       in pure (outTasks, TaskSet remainTasks plannedOutput'' alreadyOutput'')
+      if forceDirty task' then do
+        (task'', TaskSet remainTasks plannedOutput' alreadyOutput') <-
+              takeTask (n - 1) $ TaskSet (Data.List.delete task tasks) plannedOutput alreadyOutput
+        let outTasks = task' : task''
+            alreadyOutput'' = alreadyOutput' `union` fromList (outputFiles task')
+            plannedOutput'' = plannedOutput' `difference` fromList (outputFiles task')
+            nextTaskSet = TaskSet remainTasks plannedOutput'' alreadyOutput''
+        pure (outTasks, nextTaskSet)
+      else do
+        let plannedOutput' = plannedOutput `difference` fromList (outputFiles task')
+            nextTaskSet = TaskSet (Data.List.delete task tasks) plannedOutput' alreadyOutput
+        takeTask n nextTaskSet
   where
     inputsNotExistsInPlannedOutput task =
       not (any (`member` plannedOutput) (inputFiles task))
@@ -98,7 +101,7 @@ runTask task =
 
 runTasksOneByOne :: [Task] -> IO ()
 runTasksOneByOne tasks = do
-  let pbarStyle = defStyle { stylePostfix = exact, styleTodo = ' ' }
+  let pbarStyle = defStyle { stylePostfix = exact, styleTodo = ' ', styleOnComplete = Clear }
       allTaskCount = length tasks
   pbar <- newProgressBar pbarStyle 24 $ Progress 0 allTaskCount ()
   let taskSet = createTaskSet tasks
