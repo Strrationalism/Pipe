@@ -1,4 +1,4 @@
-module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError, runTopLevelByName) where
+module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError, runTopLevelByName, EvalException) where
 
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
@@ -20,20 +20,27 @@ import System.Process hiding (runCommand)
 import System.Console.Pretty
 import Debug.Trace (trace)
 import Data.Bifunctor (second)
+import Control.Exception (throw, Exception)
+import Type.Reflection (Typeable)
+
+
+newtype EvalException = EvalException String deriving (Typeable)
+
+instance Show EvalException where
+  show (EvalException msg) = msg
+
+instance Exception EvalException
+
 
 evalError :: String -> Interpreter a
 evalError x = do
   script <- curScript <$> get
   topLevel <- curTopLevel <$> get
-  pretty <- liftIO supportsPretty
-  let putStrLnStyled = if pretty then putStrLn . color Red else putStrLn
-  liftIO $
-    putStrLnStyled $
-      unlines
-        [ "In " ++ show (scriptPath script) ++ " (" ++ show topLevel ++ "):",
-          "  " ++ x
-        ]
-  liftIO exitFailure
+  throw $ EvalException $ unlines
+    [ "In " ++ show (scriptPath script) ++ " (" ++ show topLevel ++ "):",
+      "  " ++ x
+    ]
+  
 
 loadStr :: String -> Interpreter Value
 loadStr x = do

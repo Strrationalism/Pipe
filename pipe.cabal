@@ -48,6 +48,7 @@ executable pipe
                      , pipe
                      , path
                      , path-io
+                     , pretty-terminal
   default-language:    Haskell2010
 
 test-suite pipe-test

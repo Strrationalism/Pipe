@@ -21,6 +21,8 @@ import Language.PipeScript.Interpreter.Context (run)
 import Control.Monad (void)
 import Language.PipeScript.Interpreter.PipeLibrary (loadLibrary)
 import Language.PipeScript.Interpreter.Task
+import System.Console.Pretty
+import Control.Exception
 
 
 data Argument
@@ -110,7 +112,10 @@ main = do
                     _ : a -> a
                   context = loadLibrary $ createContext (verbose args) scrsCurPlat runTasksOneByOne
                   interpreter = runAction actionToStart $ fmap ValStr actionArguments
-               in void $ run interpreter context
+               in catch (void $ run interpreter context) (\e -> do
+                    pretty <- supportsPretty
+                    let putStrLnStyled = if pretty then putStrLn . color Red else putStrLn
+                    putStrLnStyled $ show (e :: SomeException))
             else
               let printError [] = return ()
                   printError (a : ls) =
