@@ -24,6 +24,7 @@ library
                      , Language.PipeScript.Interpreter.Context
                      , Language.PipeScript.Interpreter.Eval
                      , Language.PipeScript.Interpreter.PipeLibrary
+                     , Language.PipeScript.Interpreter.Task
                      
   build-depends:       base >= 4.7 && < 5
                      , text
@@ -35,6 +36,7 @@ library
                      , hashable
                      , process
                      , pretty-terminal
+                     , time
   default-language:    Haskell2010
 
 executable pipe

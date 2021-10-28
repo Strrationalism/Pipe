@@ -20,6 +20,7 @@ import Language.PipeScript.Interpreter.Eval
 import Language.PipeScript.Interpreter.Context (run)
 import Control.Monad (void)
 import Language.PipeScript.Interpreter.PipeLibrary (loadLibrary)
+import Language.PipeScript.Interpreter.Task
 
 
 data Argument
@@ -76,9 +77,6 @@ help =
             ""
           ]
 
-defaultTaskRunner :: [Task] -> IO ()
-defaultTaskRunner = mapM_ runTask
-  
 main :: IO ()
 main = do
   args <- parseArgs <$> getArgs
@@ -110,7 +108,7 @@ main = do
                   actionArguments = case pipeCommandLine of
                     [] -> []
                     _ : a -> a
-                  context = loadLibrary $ createContext (verbose args) scrsCurPlat defaultTaskRunner
+                  context = loadLibrary $ createContext (verbose args) scrsCurPlat runTasksOneByOne
                   interpreter = runAction actionToStart $ fmap ValStr actionArguments
                in void $ run interpreter context
             else

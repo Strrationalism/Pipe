@@ -67,7 +67,15 @@ data Task = Task
     operationName :: String,
     arguments :: [Value],
     context :: Context
-  }
+  } 
+
+instance Eq Task where
+  a == b = 
+    inputFiles a == inputFiles b &&
+    outputFiles a == outputFiles b &&
+    forceDirty a == forceDirty b &&
+    operationName a == operationName b &&
+    arguments a == arguments b
 
 createTask :: String -> [Value] -> Task
 createTask operationName arguments =

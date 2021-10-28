@@ -1,4 +1,4 @@
-module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError, runTask) where
+module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError, runTopLevelByName) where
 
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
@@ -24,7 +24,7 @@ evalError :: String -> Interpreter a
 evalError x = do
   script <- curScript <$> get
   topLevel <- curTopLevel <$> get
-  pretty <- liftIO supportsPretty 
+  pretty <- liftIO supportsPretty
   let putStrLnStyled = if pretty then putStrLn . color Red else putStrLn
   liftIO $
     putStrLnStyled $
@@ -60,7 +60,7 @@ runCommand command args = do
 
   liftIO $ when isVerbose $ do
       pretty <- supportsPretty
-      if pretty 
+      if pretty
       then do
         putStr $ color Cyan $ style Faint workdir'
         putStr " "
@@ -189,7 +189,7 @@ evalStatement stat = do
       ls <- evalExpr lsExpr
       case ls of
         ValList ls' -> do
-          forM_ ls' $ \val -> do 
+          forM_ ls' $ \val -> do
             setVariable loopVar val
             evalStatements block
         _ -> evalError "ForEachLoop loop variable must be a list."
@@ -201,7 +201,7 @@ evalTopLevel :: Script -> TopLevel -> [Value] -> Interpreter ()
 evalTopLevel script topLevel arguments = do
   isVerbose <- verbose <$> get
   liftIO $ when isVerbose $ do
-    pretty <- supportsPretty 
+    pretty <- supportsPretty
     let args' = foldl' (\a b -> a ++ " " ++ b) "" $ fmap show arguments
     let printStyle = if pretty then color Green . style Bold else id
     putStrLn $ printStyle $ "- " ++ show topLevel ++ args'
@@ -278,14 +278,7 @@ runTopLevels name tls args
 
 runTopLevelByName :: String -> [Value] -> Interpreter ()
 runTopLevelByName x args = getTopLevels x >>= \x' -> runTopLevels x x' args
-
-runTask :: Task -> IO ()
-runTask task = 
-  void $ run interpreter $ (context task) { isPreRun = False }
-  where 
-    interpreter =
-      runTopLevelByName (operationName task) $ arguments task
-
+      
 runAction' :: String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
 runAction' name tls args = do
   let befores = takeBefore tls

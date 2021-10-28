@@ -29,18 +29,24 @@ discard _ = do
   return ValUnit
 
 input :: PipeFunc
-input args = do
+input (ValStr x : args) = do
   curDir <- currentWorkAbsDir
-  inputFiles' <- sequence (parseRelFile . show <$> args)
-  modifyCurrentTask $ \t -> t { inputFiles = fmap (curDir </>) inputFiles' ++ inputFiles t }
-  return ValUnit
+  inputFile <- parseRelFile x
+  absInputFile <- liftIO $ pure $ curDir </> inputFile
+  modifyCurrentTask $ \t -> t { inputFiles = absInputFile : inputFiles t }
+  input args
+input [] = pure ValUnit
+input (x : args) = input $ ValStr (show x) : args
 
 output :: PipeFunc
-output args = do
+output (ValStr x : args) = do
   curDir <- currentWorkAbsDir
-  outputFiles' <- sequence (parseRelFile . show <$> args)
-  modifyCurrentTask $ \t -> t { outputFiles = fmap (curDir </>) outputFiles' ++ outputFiles t }
-  return ValUnit
+  outputFile <- parseRelFile x
+  absOutputFile <- liftIO $ pure $ curDir </> outputFile
+  modifyCurrentTask $ \t -> t { outputFiles = absOutputFile : outputFiles t }
+  output args
+output [] = pure ValUnit
+output (x : args) = output $ ValStr (show x) : args
 
 numberOperator :: (Double -> Double -> Double) -> (Int -> Int -> Int) -> PipeFunc
 numberOperator op opi [] = pure ValUnit
@@ -134,7 +140,7 @@ combinePath [ValStr x, ValStr y] = do
   x' <- parseRelDir x
   y' <- parseRelFile $ processSuffix y
   pure $ ValStr $ toFilePath (x' </> y')
-  where 
+  where
     processSuffix x
       | last x == '/' || last x == '\\' = processSuffix $ init x
       | otherwise = x
