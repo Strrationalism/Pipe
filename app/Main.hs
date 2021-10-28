@@ -110,7 +110,8 @@ main = do
                   actionArguments = case pipeCommandLine of
                     [] -> []
                     _ : a -> a
-                  context = loadLibrary $ createContext (verbose args) scrsCurPlat runTasksOneByOne
+                  taskRunner = if verbose args then runTasksOneByOne else runTasksParallel
+                  context = loadLibrary $ createContext (verbose args) scrsCurPlat taskRunner
                   interpreter = runAction actionToStart $ fmap ValStr actionArguments
                in catch (void $ run interpreter context) (\e -> do
                     pretty <- supportsPretty

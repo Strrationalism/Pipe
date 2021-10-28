@@ -3,10 +3,22 @@ module Language.PipeScript.Interpreter.Task
     isEmptyTaskSet,
     takeTask,
     runTasksOneByOne,
+    runTasksParallel
   )
 where
 
-import Control.Monad (void, when)
+import Control.Concurrent
+  ( MVar,
+    forkIO,
+    newEmptyMVar,
+    putMVar,
+    takeMVar, forkOS, newChan, writeChan, getChanContents
+  )
+import Control.Exception (Exception, throw)
+import Control.Exception.Base (SomeException, try)
+import Control.Monad (unless, void, when)
+import Data.Data (Typeable)
+import Data.Either (partitionEithers)
 import Data.Foldable (foldl')
 import Data.HashSet
   ( HashSet,
@@ -18,12 +30,14 @@ import Data.HashSet
   )
 import Data.List (delete, find)
 import Data.Time.Clock (UTCTime)
+import GHC.Conc (getNumProcessors)
 import Language.PipeScript.Interpreter.Context
 import Language.PipeScript.Interpreter.Eval
 import Path
 import Path.IO (doesFileExist, getModificationTime)
 import System.ProgressBar
-
+import Control.Concurrent.Chan (Chan)
+import Debug.Trace (trace)
 
 data TaskSet = TaskSet [Task] (HashSet (Path Abs File)) (HashSet (Path Abs File))
 
@@ -34,25 +48,25 @@ isEmptyTaskSet :: TaskSet -> Bool
 isEmptyTaskSet (TaskSet [] _ _) = True
 isEmptyTaskSet _ = False
 
-takeTask :: Int -> TaskSet -> IO ([Task], TaskSet)
-takeTask 0 t = pure ([], t)
-takeTask n (TaskSet tasks plannedOutput alreadyOutput) =
+takeTask :: TaskSet -> IO ([Task], TaskSet)
+takeTask (TaskSet tasks plannedOutput alreadyOutput) =
   case find inputsNotExistsInPlannedOutput tasks of
     Nothing -> pure ([], TaskSet tasks plannedOutput alreadyOutput)
     Just task -> do
       task' <- testTask task
-      if dirty task' then do
-        (task'', TaskSet remainTasks plannedOutput' alreadyOutput') <-
-              takeTask (n - 1) $ TaskSet (Data.List.delete task tasks) plannedOutput alreadyOutput
-        let outTasks = task' : task''
-            alreadyOutput'' = alreadyOutput' `union` fromList (outputFiles task')
-            plannedOutput'' = plannedOutput' `difference` fromList (outputFiles task')
-            nextTaskSet = TaskSet remainTasks plannedOutput'' alreadyOutput''
-        pure (outTasks, nextTaskSet)
-      else do
-        let plannedOutput' = plannedOutput `difference` fromList (outputFiles task')
-            nextTaskSet = TaskSet (Data.List.delete task tasks) plannedOutput' alreadyOutput
-        takeTask n nextTaskSet
+      if dirty task'
+        then do
+          (task'', TaskSet remainTasks plannedOutput' alreadyOutput') <-
+            takeTask $ TaskSet (Data.List.delete task tasks) plannedOutput alreadyOutput
+          let outTasks = task' : task''
+              alreadyOutput'' = alreadyOutput' `union` fromList (outputFiles task')
+              plannedOutput'' = plannedOutput' `difference` fromList (outputFiles task')
+              nextTaskSet = TaskSet remainTasks plannedOutput'' alreadyOutput''
+          pure (outTasks, nextTaskSet)
+        else do
+          let plannedOutput' = plannedOutput `difference` fromList (outputFiles task')
+              nextTaskSet = TaskSet (Data.List.delete task tasks) plannedOutput' alreadyOutput
+          takeTask nextTaskSet
   where
     inputsNotExistsInPlannedOutput task =
       not (any (`member` plannedOutput) (inputFiles task))
@@ -93,27 +107,66 @@ wrapTest test task =
         else return task {dirty = True}
 
 runTask :: Task -> IO ()
-runTask task = 
-  let interpreter = runTopLevelByName (operationName task) $ arguments task in
-  when (dirty task) $
-    void $ run interpreter $ (context task) {isPreRun = False}
-
+runTask task =
+  let interpreter = runTopLevelByName (operationName task) $ arguments task
+   in when (dirty task) $
+        void $ run interpreter $ (context task) {isPreRun = False}
 
 runTasksOneByOne :: [Task] -> IO ()
 runTasksOneByOne tasks = do
-  let pbarStyle = defStyle { stylePostfix = exact, styleTodo = ' ', styleOnComplete = Clear }
-      allTaskCount = length tasks
-  pbar <- newProgressBar pbarStyle 24 $ Progress 0 allTaskCount ()
   let taskSet = createTaskSet tasks
       runTasks taskSet = do
-        if isEmptyTaskSet taskSet
-          then updateProgress pbar $ 
-                \x -> x { progressDone = allTaskCount }
-          else do
-            (task, taskSet') <- takeTask 1 taskSet
-            mapM_ runTask task
-            when (any dirty task) $
-              updateProgress pbar $ 
-                \x -> x { progressDone = allTaskCount - taskCount taskSet' }
-            runTasks taskSet'
+        unless (isEmptyTaskSet taskSet) $ do
+          (task, taskSet') <- takeTask taskSet
+          mapM_ runTask task
+          runTasks taskSet'
   runTasks taskSet
+
+worker :: MVar (Either () Task) -> Chan (Either SomeException ()) -> IO ()
+worker taskVar resultOut = do
+  trace "Worker is waiting for a task" $ pure ()
+  task <- takeMVar taskVar
+  case task of
+    Left () -> trace "Worker get a ()" $ return ()
+    Right task -> do
+      trace "Worker get a task" $ pure ()
+      result <- try $ runTask task
+      trace ("Result is " ++ show result) $ pure ()
+      writeChan resultOut result
+      worker taskVar resultOut
+
+newtype MultiExceptions = MultiExceptions [SomeException] deriving (Typeable)
+
+instance Show MultiExceptions where
+  show (MultiExceptions xs) = foldl' (\a b -> a ++ "\n" ++ "\n" ++ b) "" $ map show xs
+
+instance Exception MultiExceptions
+
+runTasksParallel :: [Task] -> IO ()
+runTasksParallel tasks = do
+  let pbarStyle = defStyle {stylePostfix = exact, styleTodo = ' ', styleOnComplete = Clear}
+      allTaskCount = length tasks
+      taskSet = createTaskSet tasks
+  pbar <- newProgressBar pbarStyle 24 $ Progress 0 allTaskCount ()
+  cores <- getNumProcessors
+  scheduleTasks <- newEmptyMVar
+  resultOut <- newChan
+  workers <- sequence $ forkIO (worker scheduleTasks resultOut) <$ [0 .. cores - 1]
+
+  let runTasks [] taskSet = do
+        if isEmptyTaskSet taskSet
+          then do
+            updateProgress pbar $
+                \x -> x {progressDone = allTaskCount}
+            mapM_ (const $ putMVar scheduleTasks $ Left ()) workers
+        else do
+          errs <- fst . partitionEithers <$> getChanContents resultOut
+          case errs of [] -> takeTask taskSet >>= uncurry runTasks
+                       _ -> throw $ MultiExceptions errs
+
+      runTasks (firstTask : restTasks) taskSet = do
+        putMVar scheduleTasks $ Right firstTask
+        incProgress pbar 1
+        runTasks restTasks taskSet
+
+  takeTask taskSet >>= uncurry runTasks
