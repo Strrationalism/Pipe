@@ -40,7 +40,7 @@ data Value
   = ValInt Int
   | ValStr String
   | ValSymbol String
-  | ValAbsDir (Path Abs Dir)
+  | ValAbsPath (Path Abs File)
   | ValNum Double
   | ValBool Bool
   | ValList [Value]
@@ -51,7 +51,7 @@ instance Show Value where
   show (ValInt x) = show x
   show (ValStr x) = "\"" ++ x ++ "\""
   show (ValSymbol x) = x
-  show (ValAbsDir x) = show x
+  show (ValAbsPath x) = toFilePath x
   show (ValNum x) = show x
   show (ValBool True) = "true"
   show (ValBool False) = "false"

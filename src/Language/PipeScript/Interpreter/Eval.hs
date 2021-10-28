@@ -13,12 +13,13 @@ import GHC.IO.Handle (hClose)
 import Language.PipeScript
 import Language.PipeScript.Interpreter.Context
 import Language.PipeScript.Parser
-import Path (toFilePath)
+import Path (toFilePath, parseAbsFile)
 import System.Exit (exitFailure)
 import System.IO
 import System.Process hiding (runCommand)
 import System.Console.Pretty
 import Debug.Trace (trace)
+import Data.Bifunctor (second)
 
 evalError :: String -> Interpreter a
 evalError x = do
@@ -34,21 +35,26 @@ evalError x = do
         ]
   liftIO exitFailure
 
-loadStr :: String -> Interpreter String
-loadStr x =
-  eval x Nothing
+loadStr :: String -> Interpreter Value
+loadStr x = do
+  (isAbs, str) <- eval x Nothing
+  if isAbs 
+    then ValAbsPath <$> parseAbsFile str
+    else pure $ ValStr str
   where
-    eval [] Nothing = return ""
+    eval [] Nothing = pure (False, "")
     eval [] (Just v) = evalError $ "Invalid string with unclosed variable \"" ++ v ++ "\"."
-    eval ('%' : '%' : ls) varState = ('%' :) <$> eval ls varState
+    eval ('%' : '%' : ls) varState = second ('%' :) <$> eval ls varState
     eval ('%' : ls) Nothing = eval ls $ Just ""
-    eval (a : ls) Nothing = (a :) <$> eval ls Nothing
+    eval (a : ls) Nothing = second (a :) <$> eval ls Nothing
     eval ('%' : ls) (Just var) = do
       val <- getVariable $ Variable $ Identifier var
-      next <- eval ls Nothing
-      return $ show' val ++ next
-      where show' (ValStr x) = x
-            show' x = show x
+      (isAbs, next) <- eval ls Nothing
+      let show' (ValStr x) = (isAbs, x)
+          show' (ValAbsPath x) = (True, toFilePath x)
+          show' x = (isAbs, show x)
+          (isAbs', x) = show' val
+      pure $ (isAbs' || isAbs, x ++ next)
     eval (a : ls) (Just var) = eval ls $ Just $ var ++ [a]
 
 runCommand :: FilePath -> [String] -> Interpreter Value
@@ -147,7 +153,7 @@ evalApplyExpr (IdentifierExpr (Identifier i)) args = do
               else evalError $ "Can not call " ++ i ++ " from a operation."
         else evalExpr (ApplyExpr (ConstantExpr $ ConstStr i) args)
 evalApplyExpr (ConstantExpr (ConstStr file)) args = do
-  cmd <- loadStr file
+  cmd <- show <$> loadStr file
   args <- expandLists <$> mapM evalExpr args
   runCommand cmd $ fmap show args
   where expandLists [] = []
@@ -162,7 +168,7 @@ evalApplyExpr left rights = do
 evalExpr :: Expression -> Interpreter Value
 evalExpr (IdentifierExpr (Identifier name)) = return $ ValSymbol name
 evalExpr (VariableExpr var) = getVariable var
-evalExpr (ConstantExpr (ConstStr str)) = valueFromConstant . ConstStr <$> loadStr str
+evalExpr (ConstantExpr (ConstStr str)) = loadStr str
 evalExpr (ConstantExpr c) = return $ valueFromConstant c
 evalExpr (ListExpr ls) = ValList <$> mapM evalExpr ls
 evalExpr (ApplyExpr left rights) = evalApplyExpr left rights
@@ -225,6 +231,7 @@ evalTopLevel script topLevel arguments = do
       case task of
         Nothing -> return ()
         Just t -> modify $ \c -> c {tasks = t {context = taskContext} : tasks c}
+    eval (OperationDefination BeforeAction b) = evalBlock b
     eval (OperationDefination t b) = variableScope $ evalBlock b
     evalBlock opBlock = do
       let params = parameters opBlock
@@ -278,7 +285,7 @@ runTopLevels name tls args
 
 runTopLevelByName :: String -> [Value] -> Interpreter ()
 runTopLevelByName x args = getTopLevels x >>= \x' -> runTopLevels x x' args
-      
+
 runAction' :: String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
 runAction' name tls args = do
   let befores = takeBefore tls
