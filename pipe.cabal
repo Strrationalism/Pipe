@@ -37,6 +37,7 @@ library
                      , process
                      , pretty-terminal
                      , time
+                     , terminal-progress-bar
   default-language:    Haskell2010
 
 executable pipe

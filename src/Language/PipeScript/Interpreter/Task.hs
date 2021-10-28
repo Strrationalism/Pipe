@@ -22,6 +22,8 @@ import Language.PipeScript.Interpreter.Context
 import Language.PipeScript.Interpreter.Eval
 import Path
 import Path.IO (doesFileExist, getModificationTime)
+import System.ProgressBar
+
 
 data TaskSet = TaskSet [Task] (HashSet (Path Abs File)) (HashSet (Path Abs File))
 
@@ -39,7 +41,7 @@ takeTask n (TaskSet tasks plannedOutput alreadyOutput) =
     Nothing -> pure ([], TaskSet tasks plannedOutput alreadyOutput)
     Just task -> do
       task' <- testTask task
-      (task'', TaskSet tasks' plannedOutput' alreadyOutput') <-
+      (task'', TaskSet remainTasks plannedOutput' alreadyOutput') <-
             takeTask (n - 1) $ TaskSet (Data.List.delete task tasks) plannedOutput alreadyOutput
       let outTasks = task' : task''
           alreadyOutput'' = 
@@ -47,13 +49,16 @@ takeTask n (TaskSet tasks plannedOutput alreadyOutput) =
               then alreadyOutput' `union` fromList (outputFiles task)
               else alreadyOutput'
           plannedOutput'' = plannedOutput' `difference` fromList (outputFiles task)
-       in pure (outTasks, TaskSet tasks' plannedOutput'' alreadyOutput'')
+       in pure (outTasks, TaskSet remainTasks plannedOutput'' alreadyOutput'')
   where
     inputsNotExistsInPlannedOutput task =
       not (any (`member` plannedOutput) (inputFiles task))
     inputIsInAlreadyOutput = pure . not . any (`member` alreadyOutput) . inputFiles
     tests = wrapTest <$> [inputIsInAlreadyOutput, outputFileExistsTest, timeTest]
     testTask x = foldl' (>>=) (pure x) tests
+
+taskCount :: TaskSet -> Int
+taskCount (TaskSet tasks _ _) = length tasks
 
 outputFileExistsTest :: Task -> IO Bool
 outputFileExistsTest x = and <$> mapM doesFileExist (outputFiles x)
@@ -93,13 +98,19 @@ runTask task =
 
 runTasksOneByOne :: [Task] -> IO ()
 runTasksOneByOne tasks = do
+  let pbarStyle = defStyle { stylePostfix = exact, styleTodo = ' ' }
+      allTaskCount = length tasks
+  pbar <- newProgressBar pbarStyle 24 $ Progress 0 allTaskCount ()
+  let taskSet = createTaskSet tasks
+      runTasks taskSet = do
+        if isEmptyTaskSet taskSet
+          then updateProgress pbar $ 
+                \x -> x { progressDone = allTaskCount }
+          else do
+            (task, taskSet') <- takeTask 1 taskSet
+            mapM_ runTask task
+            when (any forceDirty task) $
+              updateProgress pbar $ 
+                \x -> x { progressDone = allTaskCount - taskCount taskSet' }
+            runTasks taskSet'
   runTasks taskSet
-  where
-    taskSet = createTaskSet tasks
-    runTasks taskSet =
-      if isEmptyTaskSet taskSet
-        then return ()
-        else do
-          (task, taskSet') <- takeTask 1 taskSet
-          mapM_ runTask task
-          runTasks taskSet'
