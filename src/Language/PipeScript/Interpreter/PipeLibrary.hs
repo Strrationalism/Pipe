@@ -24,7 +24,7 @@ echo args = liftIO $ sequence_ (putStrLn . show' <$> args) >> pure ValUnit
 
 dirty :: PipeFunc
 dirty [] = do
-  modifyCurrentTask $ \t -> t { forceDirty = True }
+  modifyCurrentTask $ \t -> t { Language.PipeScript.Interpreter.Context.dirty = True }
   return ValUnit
 dirty _ = error "dirty: not implemented"
 
@@ -335,7 +335,7 @@ loadLibrary c = c {funcs = fromList libi `union` funcs c}
     libi = fmap (first Identifier) lib
     lib =
       [ ("echo", echo),
-        ("dirty", dirty),
+        ("dirty", Language.PipeScript.Interpreter.PipeLibrary.dirty),
         ("discard", discard),
         ("input", input),
         ("output", output),

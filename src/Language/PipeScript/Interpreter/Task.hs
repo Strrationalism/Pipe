@@ -41,7 +41,7 @@ takeTask n (TaskSet tasks plannedOutput alreadyOutput) =
     Nothing -> pure ([], TaskSet tasks plannedOutput alreadyOutput)
     Just task -> do
       task' <- testTask task
-      if forceDirty task' then do
+      if dirty task' then do
         (task'', TaskSet remainTasks plannedOutput' alreadyOutput') <-
               takeTask (n - 1) $ TaskSet (Data.List.delete task tasks) plannedOutput alreadyOutput
         let outTasks = task' : task''
@@ -84,18 +84,18 @@ timeTest task =
 
 wrapTest :: (Task -> IO Bool) -> Task -> IO Task
 wrapTest test task =
-  if forceDirty task
+  if dirty task
     then pure task
     else do
       result <- test task
       if result
         then return task
-        else return task {forceDirty = True}
+        else return task {dirty = True}
 
 runTask :: Task -> IO ()
 runTask task = 
   let interpreter = runTopLevelByName (operationName task) $ arguments task in
-  when (forceDirty task) $
+  when (dirty task) $
     void $ run interpreter $ (context task) {isPreRun = False}
 
 
@@ -112,7 +112,7 @@ runTasksOneByOne tasks = do
           else do
             (task, taskSet') <- takeTask 1 taskSet
             mapM_ runTask task
-            when (any forceDirty task) $
+            when (any dirty task) $
               updateProgress pbar $ 
                 \x -> x { progressDone = allTaskCount - taskCount taskSet' }
             runTasks taskSet'

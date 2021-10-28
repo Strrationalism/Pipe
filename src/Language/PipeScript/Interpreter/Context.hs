@@ -63,7 +63,7 @@ type PipeFunc = [Value] -> Interpreter Value
 data Task = Task
   { inputFiles :: [Path Abs File],
     outputFiles :: [Path Abs File],
-    forceDirty :: Bool,
+    dirty :: Bool,
     operationName :: String,
     arguments :: [Value],
     context :: Context
@@ -73,7 +73,7 @@ instance Eq Task where
   a == b = 
     inputFiles a == inputFiles b &&
     outputFiles a == outputFiles b &&
-    forceDirty a == forceDirty b &&
+    dirty a == dirty b &&
     operationName a == operationName b &&
     arguments a == arguments b
 
@@ -82,7 +82,7 @@ createTask operationName arguments =
   Task
     { inputFiles = [],
       outputFiles = [],
-      forceDirty = False,
+      dirty = False,
       operationName = operationName,
       arguments = arguments,
       context = undefined
