@@ -3,17 +3,22 @@ module Language.PipeScript.Interpreter.Task
     isEmptyTaskSet,
     takeTask,
     runTasksOneByOne,
-    runTasksParallel
+    runTasksParallel,
   )
 where
 
 import Control.Concurrent
   ( MVar,
     forkIO,
+    forkOS,
+    getChanContents,
+    newChan,
     newEmptyMVar,
     putMVar,
-    takeMVar, forkOS, newChan, writeChan, getChanContents
+    takeMVar,
+    writeChan,
   )
+import Control.Concurrent.Chan (Chan)
 import Control.Exception (Exception, throw)
 import Control.Exception.Base (SomeException, try)
 import Control.Monad (unless, void, when)
@@ -30,14 +35,13 @@ import Data.HashSet
   )
 import Data.List (delete, find)
 import Data.Time.Clock (UTCTime)
+import Debug.Trace (trace)
 import GHC.Conc (getNumProcessors)
 import Language.PipeScript.Interpreter.Context
 import Language.PipeScript.Interpreter.Eval
 import Path
 import Path.IO (doesFileExist, getModificationTime)
 import System.ProgressBar
-import Control.Concurrent.Chan (Chan)
-import Debug.Trace (trace)
 
 data TaskSet = TaskSet [Task] (HashSet (Path Abs File)) (HashSet (Path Abs File))
 
@@ -157,14 +161,20 @@ runTasksParallel tasks = do
         if isEmptyTaskSet taskSet
           then do
             updateProgress pbar $
-                \x -> x {progressDone = allTaskCount}
+              \x -> x {progressDone = allTaskCount}
             mapM_ (const $ putMVar scheduleTasks $ Left ()) workers
-        else do
-          errs <- fst . partitionEithers <$> getChanContents resultOut
-          case errs of [] -> takeTask taskSet >>= uncurry runTasks
-                       _ -> throw $ MultiExceptions errs
-
+          else do
+            trace "Master geting errors" $ pure ()
+            -- 注意：Blocked是由于Channel被阻塞导致
+            --errs <- fst . partitionEithers <$> getChanContents resultOut
+            --trace ("Master got " ++ show errs) $ pure ()
+            --case errs of
+              --[] -> takeTask taskSet >>= uncurry runTasks
+              --_ -> do
+                --mapM_ (const $ putMVar scheduleTasks $ Left ()) workers
+                --throw $ MultiExceptions errs
       runTasks (firstTask : restTasks) taskSet = do
+        trace "Mater put a task" $ pure ()
         putMVar scheduleTasks $ Right firstTask
         incProgress pbar 1
         runTasks restTasks taskSet
