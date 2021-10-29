@@ -7,21 +7,9 @@ module Language.PipeScript.Interpreter.Task
   )
 where
 
-import Control.Concurrent
-  ( MVar,
-    forkIO,
-    forkOS,
-    getChanContents,
-    newChan,
-    newEmptyMVar,
-    putMVar,
-    takeMVar,
-    writeChan,
-  )
-import Control.Concurrent.Chan (Chan)
 import Control.Exception (Exception, throw)
 import Control.Exception.Base (SomeException, try)
-import Control.Monad (unless, void, when)
+import Control.Monad (unless, void, when, forever)
 import Data.Data (Typeable)
 import Data.Either (partitionEithers)
 import Data.Foldable (foldl')
@@ -42,11 +30,12 @@ import Language.PipeScript.Interpreter.Eval
 import Path
 import Path.IO (doesFileExist, getModificationTime)
 import System.ProgressBar
+import Control.Concurrent.ParallelIO.Global (parallelE)
 
 data TaskSet = TaskSet [Task] (HashSet (Path Abs File)) (HashSet (Path Abs File))
 
 createTaskSet :: [Task] -> TaskSet
-createTaskSet tasks = TaskSet tasks (fromList (tasks >>= outputFiles)) empty
+createTaskSet tasks = TaskSet (reverse tasks) (fromList (tasks >>= outputFiles)) empty
 
 isEmptyTaskSet :: TaskSet -> Bool
 isEmptyTaskSet (TaskSet [] _ _) = True
@@ -126,19 +115,6 @@ runTasksOneByOne tasks = do
           runTasks taskSet'
   runTasks taskSet
 
-worker :: MVar (Either () Task) -> Chan (Either SomeException ()) -> IO ()
-worker taskVar resultOut = do
-  trace "Worker is waiting for a task" $ pure ()
-  task <- takeMVar taskVar
-  case task of
-    Left () -> trace "Worker get a ()" $ return ()
-    Right task -> do
-      trace "Worker get a task" $ pure ()
-      result <- try $ runTask task
-      trace ("Result is " ++ show result) $ pure ()
-      writeChan resultOut result
-      worker taskVar resultOut
-
 newtype MultiExceptions = MultiExceptions [SomeException] deriving (Typeable)
 
 instance Show MultiExceptions where
@@ -147,36 +123,21 @@ instance Show MultiExceptions where
 instance Exception MultiExceptions
 
 runTasksParallel :: [Task] -> IO ()
-runTasksParallel tasks = do
-  let pbarStyle = defStyle {stylePostfix = exact, styleTodo = ' ', styleOnComplete = Clear}
-      allTaskCount = length tasks
-      taskSet = createTaskSet tasks
-  pbar <- newProgressBar pbarStyle 24 $ Progress 0 allTaskCount ()
-  cores <- getNumProcessors
-  scheduleTasks <- newEmptyMVar
-  resultOut <- newChan
-  workers <- sequence $ forkIO (worker scheduleTasks resultOut) <$ [0 .. cores - 1]
-
-  let runTasks [] taskSet = do
-        if isEmptyTaskSet taskSet
-          then do
-            updateProgress pbar $
-              \x -> x {progressDone = allTaskCount}
-            mapM_ (const $ putMVar scheduleTasks $ Left ()) workers
-          else do
-            trace "Master geting errors" $ pure ()
-            -- 注意：Blocked是由于Channel被阻塞导致
-            --errs <- fst . partitionEithers <$> getChanContents resultOut
-            --trace ("Master got " ++ show errs) $ pure ()
-            --case errs of
-              --[] -> takeTask taskSet >>= uncurry runTasks
-              --_ -> do
-                --mapM_ (const $ putMVar scheduleTasks $ Left ()) workers
-                --throw $ MultiExceptions errs
-      runTasks (firstTask : restTasks) taskSet = do
-        trace "Mater put a task" $ pure ()
-        putMVar scheduleTasks $ Right firstTask
+runTasksParallel taskSet = do 
+  let pbarStyle = defStyle { styleOnComplete = Clear, stylePostfix = exact, styleTodo = ' ' }
+  pbar <- newProgressBar pbarStyle 24 $ Progress 0 (length taskSet) ()
+  let runTask' task = do
+        runTask task
         incProgress pbar 1
-        runTasks restTasks taskSet
+      run [] taskSet =
+        if isEmptyTaskSet taskSet then pure ()
+        else takeTask taskSet >>= uncurry run
+      run tasks taskSet = do
+        errs <- fst . partitionEithers <$> parallelE (fmap runTask' tasks)
+        if null errs then run [] taskSet
+        else throw $ MultiExceptions errs
 
-  takeTask taskSet >>= uncurry runTasks
+  run [] $ createTaskSet taskSet
+
+    
+

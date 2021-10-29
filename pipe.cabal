@@ -38,6 +38,7 @@ library
                      , pretty-terminal
                      , time
                      , terminal-progress-bar
+                     , parallel-io
   default-language:    Haskell2010
 
 executable pipe
