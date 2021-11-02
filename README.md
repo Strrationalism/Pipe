@@ -26,7 +26,7 @@ CreateFont "2.ttf"
 
 
 - before action build for Windows to Nintendo-Switch           # 在build之前执行，这是一个task
-let %out% "./output"
+set %out% "./output"
 mkdir %out%
 
 - after action build for Windows to Nintendo-Switch            # 在build之后执行
