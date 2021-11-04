@@ -1,3 +1,6 @@
+{-# LANGUAGE StrictData #-}
+{-# LANGUAGE Strict #-}
+
 module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError, runTopLevelByName, EvalException) where
 
 import Control.Monad

@@ -1,4 +1,7 @@
+{-# LANGUAGE StrictData #-}
+{-# LANGUAGE Strict #-}
 {-# LANGUAGE LambdaCase #-}
+
 module Language.PipeScript.Interpreter.PipeLibrary (loadLibrary) where
 
 import Control.Monad.State.Strict (liftIO)

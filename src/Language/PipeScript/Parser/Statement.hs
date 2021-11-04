@@ -1,3 +1,6 @@
+{-# LANGUAGE StrictData #-}
+{-# LANGUAGE Strict #-}
+
 module Language.PipeScript.Parser.Statement (stats) where
 
 import Debug.Trace
