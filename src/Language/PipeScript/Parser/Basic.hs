@@ -22,7 +22,7 @@ where
 import Control.Monad
 import Data.Char (digitToInt)
 import Data.Maybe (maybeToList)
-import Data.Text
+import Data.Text hiding (elem)
 import GHC.Base (Alternative (some))
 import Language.PipeScript
 import Text.Parsec
