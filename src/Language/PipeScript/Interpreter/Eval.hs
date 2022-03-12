@@ -89,7 +89,7 @@ runCommand command args = do
         mapM_ (\x -> putStr x >> putStr " ") args
         putStrLn ""
 
-  {-let outStream = if isVerbose then Inherit else NoStream
+  let outStream = if isVerbose then Inherit else NoStream
       info =
         CreateProcess
           { cmdspec = RawCommand command args,
@@ -98,19 +98,19 @@ runCommand command args = do
             std_in = Inherit,
             std_out = outStream,
             std_err = outStream,
-            close_fds = False,
+            close_fds = True,
             create_group = False,
             delegate_ctlc = False,
             detach_console = False,
             create_new_console = False,
             new_session = False,
-            use_process_jobs = False,
+            use_process_jobs = True ,
             child_group = Nothing,
             child_user = Nothing
           }
 
-  (_, _, _, process) <- liftIO $ createProcess info -}
-  process <- liftIO $ spawnProcess command args
+  (_, _, _, process) <- liftIO $ createProcess info
+  --process <- liftIO $ spawnProcess command args
   exitCode <- liftIO $ waitForProcess process
   
   case exitCode of

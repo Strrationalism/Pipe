@@ -34,7 +34,7 @@ library
                      , unordered-containers
                      , mtl
                      , hashable
-                     , process
+                     , process >= 1.6.14.0
                      , pretty-terminal
                      , time
                      , terminal-progress-bar
