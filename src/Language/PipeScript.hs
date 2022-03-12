@@ -1,6 +1,3 @@
-{-# LANGUAGE StrictData #-}
-{-# LANGUAGE Strict #-}
-
 module Language.PipeScript
   ( Identifier (..),
     Variable (..),

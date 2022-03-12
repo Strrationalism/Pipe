@@ -1,6 +1,3 @@
-{-# LANGUAGE StrictData #-}
-{-# LANGUAGE Strict #-}
-
 module Language.PipeScript.Parser.Expression (expr) where
 
 import Language.PipeScript

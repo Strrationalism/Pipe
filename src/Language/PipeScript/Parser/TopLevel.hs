@@ -1,6 +1,3 @@
-{-# LANGUAGE StrictData #-}
-{-# LANGUAGE Strict #-}
-
 module Language.PipeScript.Parser.TopLevel (topLevelDef) where
 
 import Language.PipeScript

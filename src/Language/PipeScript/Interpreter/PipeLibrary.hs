@@ -1,7 +1,3 @@
-{-# LANGUAGE StrictData #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE LambdaCase #-}
-
 module Language.PipeScript.Interpreter.PipeLibrary (loadLibrary) where
 
 import Control.Monad.State.Strict (liftIO)
@@ -220,7 +216,7 @@ getFilesBase lsDir [ValStr dir] = do
   cd <- currentWorkAbsDir
   dir <- parseRelDir dir
   files <- liftIO $ Prelude.snd <$> lsDir (cd </> dir)
-  filesRel <- mapM (makeRelative cd) files
+  filesRel <- mapM (makeRelative $ cd </> dir) files
   return $ ValList $ fmap (ValStr . toFilePath) filesRel
 getFilesBase _ args = evalError $ "get-files: invalid arguments: " ++ show args
 
@@ -241,7 +237,7 @@ getDirsBase lsDir [ValStr dir] = do
   cd <- currentWorkAbsDir
   dir <- parseRelDir dir
   files <- liftIO $ Prelude.fst <$> lsDir (cd </> dir)
-  filesRel <- mapM (makeRelative cd) files
+  filesRel <- mapM (makeRelative $ cd </> dir) files
   return $ ValList $ fmap (ValStr . toFilePath) filesRel
 getDirsBase _ args = evalError $ "get-dirs: invalid arguments: " ++ show args
 

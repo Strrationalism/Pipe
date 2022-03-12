@@ -1,6 +1,3 @@
-{-# LANGUAGE StrictData #-}
-{-# LANGUAGE Strict #-}
-
 module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError, runTopLevelByName, EvalException) where
 
 import Control.Monad
@@ -64,7 +61,7 @@ loadStr x = do
           show' (ValAbsPath x) = (True, toFilePath x)
           show' x = (isAbs, show x)
           (isAbs', x) = show' val
-      pure $ (isAbs' || isAbs, x ++ next)
+      pure (isAbs' || isAbs, x ++ next)
     eval (a : ls) (Just var) = eval ls $ Just $ var ++ [a]
 
 runCommand :: FilePath -> [String] -> Interpreter Value
@@ -92,7 +89,7 @@ runCommand command args = do
         mapM_ (\x -> putStr x >> putStr " ") args
         putStrLn ""
 
-  let outStream = if isVerbose then Inherit else NoStream
+  {-let outStream = if isVerbose then Inherit else NoStream
       info =
         CreateProcess
           { cmdspec = RawCommand command args,
@@ -112,8 +109,10 @@ runCommand command args = do
             child_user = Nothing
           }
 
-  (_, _, _, process) <- liftIO $ createProcess info
+  (_, _, _, process) <- liftIO $ createProcess info -}
+  process <- liftIO $ spawnProcess command args
   exitCode <- liftIO $ waitForProcess process
+  
   case exitCode of
     ExitSuccess -> return ()
     ExitFailure x -> do

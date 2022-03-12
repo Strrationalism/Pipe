@@ -1,7 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE StrictData #-}
-{-# LANGUAGE Strict #-}
 
 module Language.PipeScript.Interpreter.Context
   ( Value (..),

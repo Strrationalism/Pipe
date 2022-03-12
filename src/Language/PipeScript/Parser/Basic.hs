@@ -1,6 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE StrictData #-}
-{-# LANGUAGE Strict #-}
 
 module Language.PipeScript.Parser.Basic
   ( Parser (..),
