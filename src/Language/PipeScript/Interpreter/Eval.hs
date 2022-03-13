@@ -66,6 +66,7 @@ loadStr x = do
 
 runCommand :: FilePath -> [String] -> Interpreter Value
 runCommand command args = do
+  Debug.Trace.trace ("Run command: " ++ command ++ "; args: " ++ show args) $ pure ()
   isVerbose <- verbose <$> get
   workdir <- scriptDir . curScript <$> get
   let workdir' = toFilePath workdir
@@ -159,8 +160,9 @@ evalApplyExpr (IdentifierExpr (Identifier i)) args = do
               else evalError $ "Can not call " ++ i ++ " from a operation."
         else evalExpr (ApplyExpr (ConstantExpr $ ConstStr i) args)
 evalApplyExpr (ConstantExpr (ConstStr file)) args = do
+  cmd <- value2Str <$> loadStr file
   args <- expandLists <$> mapM evalExpr args
-  runCommand file $ fmap show args
+  runCommand file $ fmap value2Str args
   where expandLists [] = []
         expandLists (ValList ls : next) = expandLists ls ++ expandLists next
         expandLists (a : next) = a : expandLists next

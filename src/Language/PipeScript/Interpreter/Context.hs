@@ -6,6 +6,7 @@ module Language.PipeScript.Interpreter.Context
     Context (..),
     Interpreter (..),
     createContext,
+    value2Str,
     valueFromConstant,
     setVariable,
     setVariables,
@@ -57,6 +58,17 @@ instance Show Value where
   show (ValBool False) = "false"
   show (ValList x) = show x
   show ValUnit = show ()
+
+value2Str :: Value -> String 
+value2Str (ValInt x) = show x
+value2Str (ValStr x) = x
+value2Str (ValSymbol x) = x
+value2Str (ValAbsPath x) = toFilePath x
+value2Str (ValNum x) = show x
+value2Str (ValBool True) = "true"
+value2Str (ValBool False) = "false"
+value2Str (ValList x) = show x
+value2Str ValUnit = show ()
 
 type PipeFunc = [Value] -> Interpreter Value
 

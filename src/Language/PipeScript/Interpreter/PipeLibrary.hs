@@ -211,7 +211,8 @@ getFilesBase lsDir [ValSymbol dir] = getFilesBase lsDir [ValStr dir]
 getFilesBase lsDir [ValAbsPath path] = do
   path' <- parseAbsDir $ toFilePath path
   (_, files) <- liftIO $ lsDir path'
-  pure $ ValList $ ValAbsPath <$> files
+  files <- mapM (makeRelative path') files
+  pure $ ValList $ fmap (ValStr . toFilePath) files
 getFilesBase lsDir [ValStr dir] = do
   cd <- currentWorkAbsDir
   dir <- parseRelDir dir
