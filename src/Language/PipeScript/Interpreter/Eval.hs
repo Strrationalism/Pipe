@@ -66,7 +66,6 @@ loadStr x = do
 
 runCommand :: FilePath -> [String] -> Interpreter Value
 runCommand command args = do
-  Debug.Trace.trace ("Run command: " ++ command ++ "; args: " ++ show args) $ pure ()
   isVerbose <- verbose <$> get
   workdir <- scriptDir . curScript <$> get
   let workdir' = toFilePath workdir
