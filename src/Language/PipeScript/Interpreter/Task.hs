@@ -123,7 +123,7 @@ instance Show MultiExceptions where
 instance Exception MultiExceptions
 
 runTasksParallel :: [Task] -> IO ()
-runTasksParallel taskSet = do 
+runTasksParallel taskSet = do
   let pbarStyle = defStyle { styleOnComplete = Clear, stylePostfix = exact, styleTodo = ' ' }
   pbar <- newProgressBar pbarStyle 24 $ Progress 0 (length taskSet) ()
   let runTask' task = do
@@ -138,6 +138,7 @@ runTasksParallel taskSet = do
         else throw $ MultiExceptions errs
 
   run [] $ createTaskSet taskSet
+  updateProgress pbar $ \_ -> Progress (length taskSet) 0 () 
 
-    
+
 
