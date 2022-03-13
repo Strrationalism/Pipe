@@ -90,27 +90,24 @@ runCommand command args = do
         putStrLn ""
 
   let outStream = if isVerbose then Inherit else NoStream
-      info =
-        CreateProcess
-          { cmdspec = RawCommand command args,
-            cwd = Just workdir',
-            env = Just $ fmap (\(Variable (Identifier var), val) -> (var, show val)) e,
-            std_in = Inherit,
-            std_out = outStream,
-            std_err = outStream,
-            close_fds = True,
-            create_group = False,
-            delegate_ctlc = False,
-            detach_console = False,
-            create_new_console = False,
-            new_session = False,
-            use_process_jobs = True ,
-            child_group = Nothing,
-            child_user = Nothing
-          }
-
-  (_, _, _, process) <- liftIO $ createProcess info
-  --process <- liftIO $ spawnProcess command args
+  (_, _, _, process) <- liftIO $ createProcess $
+    CreateProcess
+      { cmdspec = RawCommand command args,
+        cwd = Just workdir',
+        env = Just $ fmap (\(Variable (Identifier var), val) -> (var, show val)) e,
+        std_in = Inherit,
+        std_out = outStream,
+        std_err = outStream,
+        close_fds = False,
+        create_group = False,
+        delegate_ctlc = False,
+        detach_console = False,
+        create_new_console = False,
+        new_session = False,
+        use_process_jobs = True ,
+        child_group = Nothing,
+        child_user = Nothing
+      }
   exitCode <- liftIO $ waitForProcess process
   
   case exitCode of
@@ -162,9 +159,8 @@ evalApplyExpr (IdentifierExpr (Identifier i)) args = do
               else evalError $ "Can not call " ++ i ++ " from a operation."
         else evalExpr (ApplyExpr (ConstantExpr $ ConstStr i) args)
 evalApplyExpr (ConstantExpr (ConstStr file)) args = do
-  cmd <- show <$> loadStr file
   args <- expandLists <$> mapM evalExpr args
-  runCommand cmd $ fmap show args
+  runCommand file $ fmap show args
   where expandLists [] = []
         expandLists (ValList ls : next) = expandLists ls ++ expandLists next
         expandLists (a : next) = a : expandLists next
