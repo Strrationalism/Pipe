@@ -12,6 +12,8 @@ import Path
 import Path.IO
 import qualified GHC.Arr as Prelude
 import Control.Monad (foldM)
+import qualified Path as Path.IO
+import Data.List (isPrefixOf, isSuffixOf)
 
 
 -- Basics
@@ -320,11 +322,22 @@ toAbsPath [ValStr dir] = do
 toAbsPath [ValSymbol x] = toAbsPath [ValStr x]
 toAbsPath args = evalError $ "to-abs-path: invalid arguments: " ++ show args
 
-toRelPath :: PipeFunc
-toRelPath [ValAbsPath dir] = do
-  cd <- currentWorkAbsDir
-  ValStr . toFilePath <$> makeRelative cd dir
-toRelPath args = evalError $ "to-rel-path: invalid arguments: " ++ show args
+filename :: PipeFunc 
+filename [ValAbsPath path] = pure $ ValStr $ toFilePath $ Path.IO.filename path
+filename [ValStr path] = do
+  path' <- liftIO $ parseRelFile path
+  pure $ ValStr $ toFilePath $ Path.IO.filename path'
+filename args = evalError $ "filename: invalid arguments: " ++ show args
+
+startsWith :: PipeFunc 
+startsWith [ValStr prefix, ValStr str] = pure $ ValBool $ prefix `isPrefixOf` str
+startsWith [prefix, ValAbsPath p] = startsWith [prefix, ValStr $ toFilePath p]
+startsWith args = evalError $ "starts-with: invalid arguments: " ++ show args
+
+endsWith :: PipeFunc 
+endsWith [ValStr suffix, ValStr str] = pure $ ValBool $ suffix `isSuffixOf` str
+endsWith [suffix, ValAbsPath p] = endsWith [suffix, ValStr $ toFilePath p]
+endsWith args = evalError $ "ends-with: invalid arguments: " ++ show args
 
 
 -- Load Libraries
@@ -368,6 +381,8 @@ loadLibrary c = c {funcs = fromList libi `union` funcs c}
         ("delete-dir", deleteDir),
         ("delete-file", deleteFile),
         ("to-abs-path", toAbsPath),
-        ("to-rel-path", toRelPath),
-        ("as-abs-path", asAbsPath)
+        ("as-abs-path", asAbsPath),
+        ("filename",  Language.PipeScript.Interpreter.PipeLibrary.filename),
+        ("starts-with", startsWith),
+        ("ends-with", endsWith)
       ]
