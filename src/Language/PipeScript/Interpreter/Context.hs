@@ -34,7 +34,7 @@ import Language.PipeScript.Parser
 import Path
 import System.Environment (getEnv, getEnvironment)
 import Data.List ( groupBy, sortBy )
-import Path.IO (getCurrentDir)
+import Path.IO (getCurrentDir, AnyPath (makeRelative))
 import Data.Maybe (fromMaybe)
 
 data Value
@@ -59,7 +59,7 @@ instance Show Value where
   show (ValList x) = show x
   show ValUnit = show ()
 
-value2Str :: Value -> String 
+value2Str :: Value -> String
 value2Str (ValInt x) = show x
 value2Str (ValStr x) = x
 value2Str (ValSymbol x) = x
@@ -79,10 +79,10 @@ data Task = Task
     operationName :: String,
     arguments :: [Value],
     context :: Context
-  } 
+  }
 
 instance Eq Task where
-  a == b = 
+  a == b =
     inputFiles a == inputFiles b &&
     outputFiles a == outputFiles b &&
     dirty a == dirty b &&
@@ -188,6 +188,16 @@ getVariable (Variable (Identifier "cd")) = do
   rel <- scriptDir . curScript <$> get
   cd <- getCurrentDir
   return $ ValStr $ toFilePath $ cd </> rel
+getVariable (Variable (Identifier "input")) = do
+  t <- curTask <$> get
+  cd <- currentWorkAbsDir
+  files <- liftIO $ mapM (makeRelative cd) $ maybe [] inputFiles t
+  return $ ValList $ ValStr . toFilePath <$> files
+getVariable (Variable (Identifier "output")) = do
+  t <- curTask <$> get
+  cd <- currentWorkAbsDir
+  files <- liftIO $ mapM (makeRelative cd) $ maybe [] outputFiles t
+  return $ ValList $ ValStr . toFilePath <$> files
 getVariable v = do
   vars <- variables <$> get
   case vars !? v of
@@ -195,6 +205,7 @@ getVariable v = do
     Nothing -> liftIO $ ValSymbol <$> getEnv vn
   where
     (Variable (Identifier vn)) = v
+
 
 getVariables :: Interpreter [(Variable, Value)]
 getVariables = toList . variables <$> get

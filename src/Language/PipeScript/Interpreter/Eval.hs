@@ -128,9 +128,10 @@ runCommand command args = do
 
 evalApplyExpr :: Expression -> [Expression] -> Interpreter Value
 evalApplyExpr (IdentifierExpr (Identifier "set")) [VariableExpr var, expr] = do
-  val <- evalExpr expr
-  setVariable var val
-  return ValUnit
+  case var of Variable (Identifier "inputs") -> evalError "%inputs% is a read-only variable."
+              Variable (Identifier "outputs") -> evalError "%outputs% is a read-only variable."
+              Variable (Identifier "cd") -> evalError "%cd% is a read-only variable."
+              Variable _ -> evalExpr expr >>= setVariable var >> return ValUnit
 evalApplyExpr (IdentifierExpr (Identifier "set")) _ =
   evalError "Set function must has a variable argument and an expression argument."
 evalApplyExpr (IdentifierExpr (Identifier i)) args = do
