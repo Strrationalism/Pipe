@@ -238,6 +238,9 @@ evalTopLevel script topLevel arguments = do
         Nothing -> return ()
         Just t -> modify $ \c -> c {tasks = t {context = taskContext} : tasks c}
     eval (OperationDefination BeforeAction b) = evalBlock b
+    eval (OperationDefination AfterAction b) = evalBlock b
+    eval (OperationDefination BeforeAll b) = evalBlock b
+    eval (OperationDefination AfterAll b) = evalBlock b
     eval (OperationDefination t b) = variableScope $ evalBlock b
     evalBlock opBlock = do
       let params = parameters opBlock
@@ -294,19 +297,33 @@ runTopLevelByName x args = getTopLevels x >>= \x' -> runTopLevels x x' args
 
 runAction' :: String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
 runAction' name tls args = do
-  let befores = takeBefore tls
+  allTopLevels <- concat . toList . topLevels <$> get
+  let beforeAll = filter isBeforeAllBlock allTopLevels
+      afterAll = filter isAfterAllBlock allTopLevels
+      befores = takeBefore tls
       actions = takeAction tls
       afters = takeAfter tls
-  mapM_ evalTopLevel'' befores
-  mapM_ evalTopLevel'' actions
+
+  Debug.Trace.trace (show beforeAll) $ return ()
+
+  executeTopLevels beforeAll
+  executeTopLevels befores
+  executeTopLevels actions
 
   t <- fmap tasks get
   runner <- fmap taskRunner get
   liftIO $ runner t
 
-  mapM_ evalTopLevel'' afters
+  executeTopLevels afters
+  executeTopLevels afterAll
+  
   where
-    evalTopLevel'' = evalTopLevel' args
+    executeTopLevels = mapM_ executeTopLevel
+    executeTopLevel = evalTopLevel' args
+    isBeforeAllBlock (_, OperationDefination BeforeAll _) = True
+    isBeforeAllBlock _ = False
+    isAfterAllBlock (_, OperationDefination AfterAll _) = True
+    isAfterAllBlock _ = False
     isBeforeBlock (_, OperationDefination BeforeAction _) = True
     isBeforeBlock _ = False
     takeBefore = filter isBeforeBlock

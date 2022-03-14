@@ -49,6 +49,22 @@ topLevelBlockDef titleParser packer = (<?> "top level defination") $ try $ do
           }
   return $ packer blockDef
 
+topLevelBlockDefWithoutNameAndParams :: Parser () -> String -> (BlockDefination -> TopLevel) -> Parser TopLevel
+topLevelBlockDefWithoutNameAndParams titleParser name packer = do
+  titleParser
+  ws0
+  platFilter <- ws0 *> platformFilterDef
+  mayHasBlock <- option False (True <$ lineEnd)
+  block <- if mayHasBlock then option [] stats else return []
+  return $ packer $
+        BlockDefination
+          { name = Identifier name,
+            parameters = [],
+            platformFilter = platFilter,
+            block = block
+          }
+
+
 topLevelDef :: Parser TopLevel
 topLevelDef = (<?> "top level defination") $ try $ do
   char '-'
@@ -65,6 +81,10 @@ topLevelDef = (<?> "top level defination") $ try $ do
           (string "after" *> ws1 <* string "action")
           $ OperationDefination AfterAction,
       topLevelBlockDef (void $ string "operation")
-          $ OperationDefination NormalOperation
+          $ OperationDefination NormalOperation,
+      try $ topLevelBlockDefWithoutNameAndParams (string "before" *> ws1 <* string "all") "$$$BEFORE_ALL$$$"
+        $ OperationDefination BeforeAll,
+      try $ topLevelBlockDefWithoutNameAndParams (string "after" *> ws1 <* string "all") "$$$AFTER_ALL$$$"
+        $ OperationDefination AfterAll 
     ]
   
