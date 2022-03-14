@@ -304,8 +304,6 @@ runAction' name tls args = do
       actions = takeAction tls
       afters = takeAfter tls
 
-  Debug.Trace.trace (show beforeAll) $ return ()
-
   executeTopLevels beforeAll
   executeTopLevels befores
   executeTopLevels actions
