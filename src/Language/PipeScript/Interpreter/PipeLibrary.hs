@@ -154,6 +154,20 @@ trd args = nth (ValInt 2 : args)
 
 -- File Operations
 
+writeText :: PipeFunc
+writeText [ValStr content, ValAbsPath path] = do
+  liftIO $ Prelude.writeFile (Path.IO.fromAbsFile path) content
+  return ValUnit
+writeText [ValStr content, ValStr relPath] = do
+  dir <- currentWorkAbsDir
+  path <- parseRelFile relPath
+  writeText [ValStr content, ValAbsPath $ dir </> path]
+writeText [ValList x, path] = do
+  writeText [ValStr $ unlines $ fmap value2Str x, path]
+writeText [x, path] = do
+  writeText [ValStr $ value2Str x, path]
+writeText _ = evalError "write-text: takes 2 arguments"
+
 changeExtension :: PipeFunc
 changeExtension [ValStr ext, ValAbsPath x] = ValAbsPath <$> ext `replaceExtension` x
 changeExtension [ValStr ext, ValStr file] = do
@@ -368,6 +382,7 @@ loadLibrary c = c {funcs = fromList libi `union` funcs c}
         ("sub", sub),
         ("div", Language.PipeScript.Interpreter.PipeLibrary.div),
         ("range", Language.PipeScript.Interpreter.PipeLibrary.range),
+        ("write-text", writeText),
         ("change-extension", Language.PipeScript.Interpreter.PipeLibrary.changeExtension),
         ("combine-path", Language.PipeScript.Interpreter.PipeLibrary.combinePath),
         ("file-exists", fileExists),
