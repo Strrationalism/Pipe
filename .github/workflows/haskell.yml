@@ -1,0 +1,64 @@
+name: Haskell CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ windows-latest, macos-latest ]
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - uses: haskell/actions/setup@v1.2
+      with:
+        ghc-version: "9.0.1"
+        cabal-version: "3.4"
+        
+    - name: Cache
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-cabal
+      with:
+        path: ~/.cabal
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+          
+    - name: Install dependencies
+      run: |
+        cabal update
+        cabal build --only-dependencies --enable-tests --enable-benchmarks
+        
+    - name: Build
+      run: cabal build --enable-tests --enable-benchmarks all
+
+    - name: Run tests
+      run: cabal test all
+
+    - name: Copy Binary File
+      if: ${{ runner.os == 'Windows' }}
+      run: copy ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe.exe ./pipe.exe
+
+    - name: Copy Binary File
+      if: ${{ runner.os != 'Windows' }}
+      run: cp ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe ./pipe
+
+    - name: Run Binary File
+      run: ./pipe --help
+
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v2.2.4
+      with:
+        name: Pipe for ${{ runner.os }}
+        path: |
+          pipe.exe
+          pipe
