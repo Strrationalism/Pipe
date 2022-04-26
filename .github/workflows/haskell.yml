@@ -48,9 +48,9 @@ jobs:
       if: ${{ runner.os == 'Windows' }}
       run: copy ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe.exe ./pipe.exe
 
-    - name: Strip
+    - name: Copy Binary File
       if: ${{ runner.os != 'Windows' }}
-      run: strip -p --strip-unneeded --remove-section=.comment -o ./pipe ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe
+      run: cp ./dist-newstyle/build/*/*/*/x/pipe/build/pipe/pipe ./pipe
 
     - name: Run Binary File
       run: ./pipe --help
