@@ -10,10 +10,20 @@ import System.Process (runCommand)
 import Control.Monad.State.Class (modify)
 import Path
 import Path.IO
+    ( copyFile,
+      doesDirExist,
+      doesFileExist,
+      ensureDir,
+      listDir,
+      listDirRecur,
+      removeDirRecur)
 import qualified GHC.Arr as Prelude
-import Control.Monad (foldM)
+import Control.Monad ( foldM, filterM )
 import qualified Path as Path.IO
 import Data.List (isPrefixOf, isSuffixOf)
+import qualified System.Directory
+import qualified System.FilePath
+import qualified Debug.Trace as Debug
 
 
 -- Basics
@@ -41,8 +51,7 @@ input (ValAbsPath x : args) = do
   input args
 input (ValStr x : args) = do
   curDir <- currentWorkAbsDir
-  inputFile <- parseRelFile x
-  absInputFile <- liftIO $ pure $ curDir </> inputFile
+  absInputFile <- parseAbsFile $ curDir System.FilePath.</> x
   input (ValAbsPath absInputFile : args)
 input (ValSymbol x : args) = input (ValStr x : args)
 input [] = pure ValUnit
@@ -54,8 +63,7 @@ output (ValAbsPath x : args) = do
   output args
 output (ValStr x : args) = do
   curDir <- currentWorkAbsDir
-  outputFile <- parseRelFile x
-  absOutputFile <- liftIO $ pure $ curDir </> outputFile
+  absOutputFile <- parseAbsFile $ curDir System.FilePath.</> x
   output (ValAbsPath absOutputFile : args)
 output (ValSymbol x : args) = output (ValStr x : args)
 output [] = pure ValUnit
@@ -160,8 +168,8 @@ writeText [ValStr content, ValAbsPath path] = do
   return ValUnit
 writeText [ValStr content, ValStr relPath] = do
   dir <- currentWorkAbsDir
-  path <- parseRelFile relPath
-  writeText [ValStr content, ValAbsPath $ dir </> path]
+  path <- parseAbsFile $ dir System.FilePath.</> relPath
+  writeText [ValStr content, ValAbsPath path ]
 writeText [ValList x, path] = do
   writeText [ValStr $ unlines $ fmap value2Str x, path]
 writeText [x, path] = do
@@ -200,11 +208,11 @@ combinePath args = foldM combinePath' (ValStr ".") args
 
 fileExists :: PipeFunc
 fileExists [ValStr file] = do
-  dir <- currentWorkAbsDir
-  path <- parseRelFile file
-  fileExists [ValAbsPath $ dir </> path]
+  dir <- currentWorkDir
+  exists <- liftIO $ System.Directory.doesFileExist $ dir System.FilePath.</> file
+  return $ ValBool exists
 fileExists [ValAbsPath file] = do
-  exists <- liftIO $ doesFileExist file
+  exists <- liftIO $ System.Directory.doesFileExist $ toFilePath file
   pure $ ValBool exists
 fileExists [ValSymbol file] = fileExists [ValStr file]
 fileExists args = evalError $ "file-exists: invalid arguments: " ++ show args
@@ -215,66 +223,44 @@ dirExists [ValAbsPath path] = do
   exists <- liftIO $ doesDirExist path'
   pure $ ValBool exists
 dirExists [ValStr dir] = do
-  cd <- currentWorkAbsDir
-  dir <- parseRelDir dir
-  exists <- liftIO $ doesDirExist (cd </> dir)
+  cd <- currentWorkDir
+  exists <- liftIO $ System.Directory.doesDirectoryExist $ cd System.FilePath.</> dir
   pure $ ValBool exists
 dirExists [ValSymbol s] = dirExists [ValStr s]
 dirExists args = evalError $ "dir-exists: invalid arguments: " ++ show args
 
-getFilesBase :: (Path Abs Dir -> IO ([Path Abs Dir], [Path Abs File])) -> PipeFunc
-getFilesBase lsDir [ValSymbol dir] = getFilesBase lsDir [ValStr dir]
-getFilesBase lsDir [ValAbsPath path] = do
-  path' <- parseAbsDir $ toFilePath path
-  (_, files) <- liftIO $ lsDir path'
-  files <- mapM (makeRelative path') files
-  pure $ ValList $ fmap (ValStr . toFilePath) files
-getFilesBase lsDir [ValStr dir] = do
+
+getFiles' :: (FilePath -> IO Bool) -> PipeFunc
+getFiles' f [ValAbsPath path] = do
+  let path' = toFilePath path
+  content <- liftIO $ System.Directory.listDirectory path'
+  content' <- liftIO $ filterM (f . (path' System.FilePath.</>)) content
+  pure $ ValList $ fmap ValStr content'
+getFiles' f [ValStr path] = do
   cd <- currentWorkAbsDir
-  dir <- parseRelDir dir
-  files <- liftIO $ Prelude.snd <$> lsDir (cd </> dir)
-  filesRel <- mapM (makeRelative $ cd </> dir) files
-  return $ ValList $ fmap (ValStr . toFilePath) filesRel
-getFilesBase _ args = evalError $ "get-files: invalid arguments: " ++ show args
+  let path' = cd System.FilePath.</> path
+  content <- liftIO $ System.Directory.listDirectory path'
+  content' <- liftIO $ filterM (f . (path' System.FilePath.</>)) content
+  pure $ ValList $ fmap ValStr content'
+getFiles' _ _ = evalError "get-files: takes 1 argument"
 
 getFiles :: PipeFunc
-getFiles = getFilesBase listDir
-
-allFiles :: PipeFunc
-allFiles = getFilesBase listDirRecur
-
-getDirsBase :: (Path Abs Dir -> IO ([Path Abs Dir], [Path Abs File])) -> PipeFunc
-getDirsBase lsDir [ValAbsPath path] = do
-  path' <- parseAbsDir $ toFilePath path
-  (dirs, _) <- liftIO $ lsDir path'
-  dirs' <- liftIO $ sequence (parseAbsFile . toFilePath <$> dirs)
-  pure $ ValList $ ValAbsPath <$> dirs'
-getDirsBase lsDir [ValSymbol dir] = getDirsBase lsDir [ValStr dir]
-getDirsBase lsDir [ValStr dir] = do
-  cd <- currentWorkAbsDir
-  dir <- parseRelDir dir
-  files <- liftIO $ Prelude.fst <$> lsDir (cd </> dir)
-  filesRel <- mapM (makeRelative $ cd </> dir) files
-  return $ ValList $ fmap (ValStr . toFilePath) filesRel
-getDirsBase _ args = evalError $ "get-dirs: invalid arguments: " ++ show args
+getFiles = getFiles' System.Directory.doesFileExist
 
 getDirs :: PipeFunc
-getDirs = getDirsBase listDir
-
-allDirs :: PipeFunc
-allDirs = getDirsBase listDirRecur
+getDirs = getFiles' System.Directory.doesDirectoryExist
 
 ensureDir :: PipeFunc
 ensureDir [ValStr dir] = do
-  dir <- parseRelDir dir
+  dir <- toFilePath <$> parseRelDir dir
   cd <- currentWorkAbsDir
-  liftIO $ Path.IO.ensureDir (cd </> dir)
+  liftIO $ System.Directory.createDirectoryIfMissing True (cd System.FilePath.</> dir)
   return ValUnit
 ensureDir [ValAbsPath dir] = do
   dir <- parseAbsDir $ toFilePath dir
   liftIO $ Path.IO.ensureDir dir
   return ValUnit
-ensureDir [ValSymbol dir] = 
+ensureDir [ValSymbol dir] =
   Language.PipeScript.Interpreter.PipeLibrary.ensureDir [ValStr dir]
 ensureDir args = evalError $ "ensure-dir: invalid arguments: " ++ show args
 
@@ -282,17 +268,13 @@ copyFile :: PipeFunc
 copyFile [ValAbsPath src, ValAbsPath dst] = do
   liftIO $ Path.IO.copyFile src dst
   return ValUnit
-copyFile [ValStr src, ValAbsPath dst] = do
-  src' <- parseRelFile src
-  cd <- currentWorkAbsDir
-  Language.PipeScript.Interpreter.PipeLibrary.copyFile 
-    [ValAbsPath (cd </> src'), ValAbsPath dst]
 copyFile [ValStr src, ValStr dst] = do
-  dst' <- parseRelFile dst
   cd <- currentWorkAbsDir
-  Language.PipeScript.Interpreter.PipeLibrary.copyFile 
-    [ValStr src, ValAbsPath (cd </> dst')]
-copyFile [ValSymbol src, x] = 
+  let src = cd System.FilePath.</> src
+      dst = cd System.FilePath.</> dst
+  liftIO $ System.Directory.copyFile src dst
+  return ValUnit
+copyFile [ValSymbol src, x] =
   Language.PipeScript.Interpreter.PipeLibrary.copyFile [ValStr src, x]
 copyFile [x, ValSymbol dst] =
   Language.PipeScript.Interpreter.PipeLibrary.copyFile [x, ValStr dst]
@@ -304,9 +286,8 @@ deleteDir [ValAbsPath dir] = do
   liftIO $ Path.IO.removeDirRecur dir'
   return ValUnit
 deleteDir [ValStr dir] = do
-  dir <- parseRelDir dir
   cd <- currentWorkAbsDir
-  liftIO $ Path.IO.removeDir (cd </> dir)
+  liftIO $ System.Directory.removeDirectoryRecursive (cd System.FilePath.</> dir)
   return ValUnit
 deleteDir [ValSymbol dir] = do
   Language.PipeScript.Interpreter.PipeLibrary.deleteDir [ValStr dir]
@@ -314,12 +295,12 @@ deleteDir args = evalError $ "delete-dir: invalid arguments: " ++ show args
 
 deleteFile :: PipeFunc
 deleteFile [ValAbsPath file] = do
-  liftIO $ Path.IO.removeFile file
+  liftIO $ System.Directory.removeFile $ toFilePath file
   return ValUnit
 deleteFile [ValStr file] = do
-  file <- parseRelFile file
   cd <- currentWorkAbsDir
-  deleteFile [ValAbsPath (cd </> file)]
+  liftIO $ System.Directory.removeFile $ cd System.FilePath.</> file
+  return ValUnit
 deleteFile [ValSymbol x] = do
   Language.PipeScript.Interpreter.PipeLibrary.deleteFile [ValStr x]
 deleteFile args = evalError $ "delete-file: invalid arguments: " ++ show args
@@ -330,25 +311,25 @@ asAbsPath args = evalError $ "as-abs-path: invalid arguments: " ++ show args
 
 toAbsPath :: PipeFunc
 toAbsPath [ValStr dir] = do
-  dir <- parseRelFile $ processPathSuffix dir
   cd <- currentWorkAbsDir
-  pure $ ValAbsPath (cd </> dir)
+  r <- parseAbsFile $ cd System.FilePath.</> dir
+  pure $ ValAbsPath r
 toAbsPath [ValSymbol x] = toAbsPath [ValStr x]
 toAbsPath args = evalError $ "to-abs-path: invalid arguments: " ++ show args
 
-filename :: PipeFunc 
+filename :: PipeFunc
 filename [ValAbsPath path] = pure $ ValStr $ toFilePath $ Path.IO.filename path
 filename [ValStr path] = do
   path' <- liftIO $ parseRelFile path
   pure $ ValStr $ toFilePath $ Path.IO.filename path'
 filename args = evalError $ "filename: invalid arguments: " ++ show args
 
-startsWith :: PipeFunc 
+startsWith :: PipeFunc
 startsWith [ValStr prefix, ValStr str] = pure $ ValBool $ prefix `isPrefixOf` str
 startsWith [prefix, ValAbsPath p] = startsWith [prefix, ValStr $ toFilePath p]
 startsWith args = evalError $ "starts-with: invalid arguments: " ++ show args
 
-endsWith :: PipeFunc 
+endsWith :: PipeFunc
 endsWith [ValStr suffix, ValStr str] = pure $ ValBool $ suffix `isSuffixOf` str
 endsWith [suffix, ValAbsPath p] = endsWith [suffix, ValStr $ toFilePath p]
 endsWith args = evalError $ "ends-with: invalid arguments: " ++ show args
@@ -388,9 +369,7 @@ loadLibrary c = c {funcs = fromList libi `union` funcs c}
         ("file-exists", fileExists),
         ("dir-exists", dirExists),
         ("get-files", getFiles),
-        ("all-files", allFiles),
         ("get-dirs", getDirs),
-        ("all-dirs", allDirs),
         ("ensure-dir", Language.PipeScript.Interpreter.PipeLibrary.ensureDir),
         ("copy-file", Language.PipeScript.Interpreter.PipeLibrary.copyFile),
         ("delete-dir", deleteDir),

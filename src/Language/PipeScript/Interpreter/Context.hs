@@ -128,11 +128,11 @@ currentWorkDir = do
   script <- curScript <$> get
   pure $ scriptDir script
 
-currentWorkAbsDir :: Interpreter (Path Abs Dir)
+currentWorkAbsDir :: Interpreter FilePath
 currentWorkAbsDir = do
   startupDir <- toFilePath <$> getCurrentDir
   curDir <- currentWorkDir
-  liftIO $ parseAbsDir $ startupDir System.FilePath.</> curDir
+  return $ startupDir System.FilePath.</> curDir
 
 createContext :: Bool -> [Script] -> ([Task] -> IO ()) -> Context
 createContext verbose scripts taskRunner =
@@ -192,13 +192,14 @@ getVariable (Variable (Identifier "cd")) = do
 getVariable (Variable (Identifier "input")) = do
   t <- curTask <$> get
   cd <- currentWorkAbsDir
-  files <- liftIO $ mapM (makeRelative cd) $ maybe [] inputFiles t
-  return $ ValList $ ValStr . toFilePath <$> files
+  let files = maybe [] (fmap toFilePath . inputFiles) t
+  let files' = System.FilePath.makeRelative cd <$> files
+  return $ ValList $ ValStr <$> files'
 getVariable (Variable (Identifier "output")) = do
   t <- curTask <$> get
   cd <- currentWorkAbsDir
-  files <- liftIO $ mapM (makeRelative cd) $ maybe [] outputFiles t
-  return $ ValList $ ValStr . toFilePath <$> files
+  let files = System.FilePath.makeRelative cd . toFilePath <$> maybe [] outputFiles t
+  return $ ValList $ ValStr <$> files
 getVariable v = do
   vars <- variables <$> get
   case vars !? v of
