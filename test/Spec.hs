@@ -13,8 +13,7 @@ doHspec = hspec $ do
 main :: IO ()
 main = do
   putStrLn "= Test Load Example ="
-  script <- parseRelFile "./test/Example.pipe"
-  p <- parsePipeScript script
+  p <- parsePipeScript "./test/Example.pipe"
   case p of
     Left x -> print x
     Right x -> print x
