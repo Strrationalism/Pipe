@@ -47,24 +47,26 @@ discard _ = evalError "discard: takes no arguments"
 
 input :: PipeFunc
 input (ValAbsPath x : args) = do
-  modifyCurrentTask $ \t -> t { inputFiles = x : inputFiles t }
+  modifyCurrentTask $ \t -> t { inputFiles = toFilePath x : inputFiles t }
   input args
 input (ValStr x : args) = do
   curDir <- currentWorkAbsDir
-  absInputFile <- parseAbsFile $ curDir System.FilePath.</> x
-  input (ValAbsPath absInputFile : args)
+  let absInputFile = curDir System.FilePath.</> x
+  modifyCurrentTask $ \t -> t { inputFiles = absInputFile : inputFiles t }
+  input args
 input (ValSymbol x : args) = input (ValStr x : args)
 input [] = pure ValUnit
 input args = evalError $ "input: takes 1 or more arguments, but got " ++ show args
 
 output :: PipeFunc
 output (ValAbsPath x : args) = do
-  modifyCurrentTask $ \t -> t { outputFiles = x : outputFiles t }
+  modifyCurrentTask $ \t -> t { outputFiles = toFilePath x : outputFiles t }
   output args
 output (ValStr x : args) = do
   curDir <- currentWorkAbsDir
-  absOutputFile <- parseAbsFile $ curDir System.FilePath.</> x
-  output (ValAbsPath absOutputFile : args)
+  let absOutputFile = curDir System.FilePath.</> x
+  modifyCurrentTask $ \t -> t { outputFiles = absOutputFile : outputFiles t }
+  output args
 output (ValSymbol x : args) = output (ValStr x : args)
 output [] = pure ValUnit
 output args = evalError $ "output: takes 1 or more arguments, but got " ++ show args
@@ -168,8 +170,9 @@ writeText [ValStr content, ValAbsPath path] = do
   return ValUnit
 writeText [ValStr content, ValStr relPath] = do
   dir <- currentWorkAbsDir
-  path <- parseAbsFile $ dir System.FilePath.</> relPath
-  writeText [ValStr content, ValAbsPath path ]
+  let path = dir System.FilePath.</> relPath
+  liftIO $ Prelude.writeFile path content
+  return ValUnit
 writeText [ValList x, path] = do
   writeText [ValStr $ unlines $ fmap value2Str x, path]
 writeText [x, path] = do
@@ -179,8 +182,7 @@ writeText _ = evalError "write-text: takes 2 arguments"
 changeExtension :: PipeFunc
 changeExtension [ValStr ext, ValAbsPath x] = ValAbsPath <$> ext `replaceExtension` x
 changeExtension [ValStr ext, ValStr file] = do
-  path <- parseRelFile file
-  ValStr . toFilePath <$> ext `replaceExtension` path
+  return $ ValStr $ file System.FilePath.-<.> ext
 changeExtension [ValStr ext, ValSymbol file] = changeExtension [ValStr ext, ValStr file]
 changeExtension [ValSymbol ext, b] = changeExtension [ValStr ext, b]
 changeExtension args = evalError $ "change-extension: invalid arguments: " ++ show args
@@ -265,14 +267,15 @@ ensureDir [ValSymbol dir] =
 ensureDir args = evalError $ "ensure-dir: invalid arguments: " ++ show args
 
 copyFile :: PipeFunc
-copyFile [ValAbsPath src, ValAbsPath dst] = do
-  liftIO $ Path.IO.copyFile src dst
-  return ValUnit
+copyFile [ValAbsPath src, dst] = do
+  Language.PipeScript.Interpreter.PipeLibrary.copyFile [ValStr $ toFilePath src, dst]
+copyFile [src, ValAbsPath dst] = do
+  Language.PipeScript.Interpreter.PipeLibrary.copyFile [src, ValStr $ toFilePath dst]
 copyFile [ValStr src, ValStr dst] = do
   cd <- currentWorkAbsDir
-  let src = cd System.FilePath.</> src
-      dst = cd System.FilePath.</> dst
-  liftIO $ System.Directory.copyFile src dst
+  let src' = cd System.FilePath.</> src
+      dst' = cd System.FilePath.</> dst
+  liftIO $ System.Directory.copyFile src' dst'
   return ValUnit
 copyFile [ValSymbol src, x] =
   Language.PipeScript.Interpreter.PipeLibrary.copyFile [ValStr src, x]

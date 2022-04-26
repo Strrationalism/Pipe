@@ -27,12 +27,11 @@ import Debug.Trace (trace)
 import GHC.Conc (getNumProcessors)
 import Language.PipeScript.Interpreter.Context
 import Language.PipeScript.Interpreter.Eval
-import Path
-import Path.IO (doesFileExist, getModificationTime)
 import System.ProgressBar
 import Control.Concurrent.ParallelIO.Global (parallelE)
+import System.Directory (doesFileExist, getModificationTime)
 
-data TaskSet = TaskSet [Task] (HashSet (Path Abs File)) (HashSet (Path Abs File))
+data TaskSet = TaskSet [Task] (HashSet FilePath) (HashSet FilePath)
 
 createTaskSet :: [Task] -> TaskSet
 createTaskSet tasks = TaskSet (reverse tasks) (fromList (tasks >>= outputFiles)) empty

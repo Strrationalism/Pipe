@@ -74,8 +74,8 @@ value2Str ValUnit = show ()
 type PipeFunc = [Value] -> Interpreter Value
 
 data Task = Task
-  { inputFiles :: [Path Abs File],
-    outputFiles :: [Path Abs File],
+  { inputFiles :: [FilePath],   -- absolute path
+    outputFiles :: [FilePath],  -- absolute path
     dirty :: Bool,
     operationName :: String,
     arguments :: [Value],
@@ -192,13 +192,13 @@ getVariable (Variable (Identifier "cd")) = do
 getVariable (Variable (Identifier "input")) = do
   t <- curTask <$> get
   cd <- currentWorkAbsDir
-  let files = maybe [] (fmap toFilePath . inputFiles) t
+  let files = maybe [] inputFiles t
   let files' = System.FilePath.makeRelative cd <$> files
   return $ ValList $ ValStr <$> files'
 getVariable (Variable (Identifier "output")) = do
   t <- curTask <$> get
   cd <- currentWorkAbsDir
-  let files = System.FilePath.makeRelative cd . toFilePath <$> maybe [] outputFiles t
+  let files = System.FilePath.makeRelative cd <$> maybe [] outputFiles t
   return $ ValList $ ValStr <$> files
 getVariable v = do
   vars <- variables <$> get

@@ -59,7 +59,7 @@ parseArgs args =
       [] -> prev
       "--for" : os : more -> parseStep (prev {currentPlatform = os}) more
       "--to" : os : more -> parseStep (prev {targetPlatform = os}) more
-      p : more | p == "-p" || p == "--progress" -> parseStep (prev {verbose = False}) more
+      p : more | p == "-p" || p == "--parallel" -> parseStep (prev {verbose = False}) more
       x : more -> parseStep (prev {actionNameAndArgs = actionNameAndArgs prev ++ [x]}) more
 
 help :: IO ()
@@ -76,7 +76,7 @@ help =
             "    --help (or -h)      Show help information.",
             "    --for <os>          Set current platform. (default: " ++ os ++ ")",
             "    --to <os>           Set target platform. (default: " ++ os ++ ")",
-            "    --progress (or -p)  Show progress.",
+            "    --parallel (or -p)  Build in parallel mode and show progress.",
             ""
           ]
 
