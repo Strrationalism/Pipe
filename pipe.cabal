@@ -37,6 +37,7 @@ library
                      , process >= 1.6.14.0
                      , pretty-terminal
                      , time
+                     , filepath
                      , terminal-progress-bar
                      , parallel-io
   default-language:    Haskell2010

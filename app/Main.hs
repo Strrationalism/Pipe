@@ -11,7 +11,7 @@ import Language.PipeScript.Parser
     scriptPath
   )
 import Language.PipeScript.Interpreter.Context hiding (verbose)
-import Path (parseRelFile)
+import Path (parseRelFile, toFilePath)
 import Path.IO (doesFileExist)
 import System.Environment (getArgs)
 import qualified System.Info
@@ -46,11 +46,12 @@ defaultArgument =
     { currentPlatform = os,
       targetPlatform = os,
       actionNameAndArgs = [],
-      verbose = False
+      verbose = True
     }
 
 parseArgs :: [String] -> Argument
 parseArgs ["--help"] = Help
+parseArgs ["-h"] = Help
 parseArgs args =
   parseStep defaultArgument args
   where
@@ -58,7 +59,7 @@ parseArgs args =
       [] -> prev
       "--for" : os : more -> parseStep (prev {currentPlatform = os}) more
       "--to" : os : more -> parseStep (prev {targetPlatform = os}) more
-      "--verbose" : more -> parseStep (prev {verbose = True}) more
+      p : more | p == "-p" || p == "--progress" -> parseStep (prev {verbose = False}) more
       x : more -> parseStep (prev {actionNameAndArgs = actionNameAndArgs prev ++ [x]}) more
 
 help :: IO ()
@@ -72,10 +73,10 @@ help =
             "    pipe [--help] [--for <os>] [--to <os>] [--verbose] [action [action arguments ...]]",
             "",
             "Flags:",
-            "    --help      Show help information.",
-            "    --for <os>  Set current platform. (default: " ++ os ++ ")",
-            "    --to <os>   Set target platform. (default: " ++ os ++ ")",
-            "    --verbose   Show build logs.",
+            "    --help (or -h)      Show help information.",
+            "    --for <os>          Set current platform. (default: " ++ os ++ ")",
+            "    --to <os>           Set target platform. (default: " ++ os ++ ")",
+            "    --progress (or -p)  Show progress.",
             ""
           ]
 
@@ -94,7 +95,7 @@ main = do
             >> help
             >> exitWith (ExitFailure 2)
         else do
-          scripts <- parsePipeScriptWithIncludes startupScript
+          scripts <- parsePipeScriptWithIncludes $ toFilePath startupScript
           let (errs, scrs) = partitionEithers scripts
           if null errs
             then

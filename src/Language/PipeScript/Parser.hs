@@ -16,36 +16,35 @@ import Language.PipeScript.Parser.Basic
 import Language.PipeScript.Parser.TopLevel (topLevelDef)
 import System.IO (IOMode (ReadMode), hClose, hSetEncoding, openFile, utf8)
 import Text.Parsec
-import Path
+import System.FilePath
 
 parser :: Parser AST
 parser = many (wsle0 *> topLevelDef <* wsle0) <* eof
 
-data Script = Script (Path Rel File) AST deriving (Eq, Show)
+data Script = Script FilePath AST deriving (Eq, Show)
 
-scriptPath :: Script -> Path Rel File
+scriptPath :: Script -> FilePath
 scriptPath (Script path _) = path
 
-scriptDir :: Script -> Path Rel Dir
-scriptDir = parent . scriptPath
+scriptDir :: Script -> FilePath 
+scriptDir = takeDirectory . scriptPath
 
 scriptAST :: Script -> AST
 scriptAST (Script _ ast) = ast
 
-parsePipeScript :: Path Rel File -> IO (Either ParseError Script)
+parsePipeScript :: FilePath -> IO (Either ParseError Script)
 parsePipeScript path =
   fmap (Script path) <$> ast
   where
-    filePath = fromRelFile path
-    ast = Text.Parsec.parse parser filePath <$> text
+    ast = Text.Parsec.parse parser path <$> text
     text = do
-      handle <- openFile filePath ReadMode
+      handle <- openFile path ReadMode
       hSetEncoding handle utf8
       input <- hGetContents handle
       hClose handle
       return input
 
-parsePipeScriptWithIncludes :: Path Rel File -> IO [Either ParseError Script]
+parsePipeScriptWithIncludes :: FilePath -> IO [Either ParseError Script]
 parsePipeScriptWithIncludes path = do
   my <- parsePipeScript path
   case my of
@@ -54,7 +53,7 @@ parsePipeScriptWithIncludes path = do
       (my :) <$> parseIncludes (scriptAST script)
       where
         parseInclude (Include x) = do
-          subScriptPath <- (scriptDir script </>) <$> parseRelFile x
+          let subScriptPath = scriptDir script </> x
           parsePipeScriptWithIncludes subScriptPath
         parseInclude _ = return []
         parseIncludes ast = fmap join $ sequence $ parseInclude <$> (ast :: AST)

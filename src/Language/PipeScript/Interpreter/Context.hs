@@ -36,6 +36,7 @@ import System.Environment (getEnv, getEnvironment)
 import Data.List ( groupBy, sortBy )
 import Path.IO (getCurrentDir, AnyPath (makeRelative))
 import Data.Maybe (fromMaybe)
+import qualified System.FilePath
 
 data Value
   = ValInt Int
@@ -122,16 +123,16 @@ modifyCurrentTask :: (Task -> Task) -> Interpreter ()
 modifyCurrentTask f = do
   modify $ \c -> c {curTask = f <$> curTask c }
 
-currentWorkDir :: Interpreter (Path Rel Dir)
+currentWorkDir :: Interpreter FilePath
 currentWorkDir = do
   script <- curScript <$> get
   pure $ scriptDir script
 
 currentWorkAbsDir :: Interpreter (Path Abs Dir)
 currentWorkAbsDir = do
-  startupDir <- getCurrentDir
+  startupDir <- toFilePath <$> getCurrentDir
   curDir <- currentWorkDir
-  return $ startupDir </> curDir
+  liftIO $ parseAbsDir $ startupDir System.FilePath.</> curDir
 
 createContext :: Bool -> [Script] -> ([Task] -> IO ()) -> Context
 createContext verbose scripts taskRunner =
@@ -186,8 +187,8 @@ variableScope a = do
 getVariable :: Variable -> Interpreter Value
 getVariable (Variable (Identifier "cd")) = do
   rel <- scriptDir . curScript <$> get
-  cd <- getCurrentDir
-  return $ ValStr $ toFilePath $ cd </> rel
+  cd <- toFilePath <$> getCurrentDir
+  return $ ValStr $ cd System.FilePath.</> rel
 getVariable (Variable (Identifier "input")) = do
   t <- curTask <$> get
   cd <- currentWorkAbsDir

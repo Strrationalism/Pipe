@@ -68,21 +68,20 @@ runCommand :: FilePath -> [String] -> Interpreter Value
 runCommand command args = do
   isVerbose <- verbose <$> get
   workdir <- scriptDir . curScript <$> get
-  let workdir' = toFilePath workdir
   e <- getVariableEnvs
 
   liftIO $ when isVerbose $ do
       pretty <- supportsPretty
       if pretty
       then do
-        putStr $ color Cyan $ style Faint workdir'
+        putStr $ color Cyan $ style Faint workdir
         putStr " "
         putStr $ color Yellow $ style Bold command
         putStr " "
         mapM_ (\x -> putStr (color Yellow x) >> putStr " ") args
         putStrLn ""
       else do
-        putStr workdir'
+        putStr workdir
         putStr " "
         putStr command
         putStr " "
@@ -93,7 +92,7 @@ runCommand command args = do
   (_, _, _, process) <- liftIO $ createProcess $
     CreateProcess
       { cmdspec = RawCommand command args,
-        cwd = Just workdir',
+        cwd = Just workdir,
         env = Just $ fmap (\(Variable (Identifier var), val) -> (var, show val)) e,
         std_in = Inherit,
         std_out = outStream,
