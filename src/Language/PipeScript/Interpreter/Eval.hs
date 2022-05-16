@@ -40,12 +40,12 @@ evalError x = do
     [ "In " ++ show (scriptPath script) ++ " (" ++ show topLevel ++ "):",
       "  " ++ x
     ]
-  
+
 
 loadStr :: String -> Interpreter Value
 loadStr x = do
   (isAbs, str) <- eval x Nothing
-  if isAbs 
+  if isAbs
     then ValAbsPath <$> parseAbsFile str
     else pure $ ValStr str
   where
@@ -108,7 +108,7 @@ runCommand command args = do
         child_user = Nothing
       }
   exitCode <- liftIO $ waitForProcess process
-  
+
   case exitCode of
     ExitSuccess -> return ()
     ExitFailure x -> do
@@ -283,10 +283,10 @@ runTopLevels name tls args
     if preRun
       then run $ takeTasks tls
       else run $ takeOps tls
-  | isAction tls = runAction' name tls args
+  | isAction tls = runAction' False name tls args
   | otherwise = run tls
   where
-    run tls = mapM_ (evalTopLevel' args) tls
+    run = mapM_ (evalTopLevel' args)
     isTaskBlock (_, TaskDefination _) = True
     isTaskBlock _ = False
     takeTasks = filter isTaskBlock
@@ -295,8 +295,8 @@ runTopLevels name tls args
 runTopLevelByName :: String -> [Value] -> Interpreter ()
 runTopLevelByName x args = getTopLevels x >>= \x' -> runTopLevels x x' args
 
-runAction' :: String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
-runAction' name tls args = do
+runAction' :: Bool -> String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
+runAction' topRun name tls args = do
   allTopLevels <- concat . toList . topLevels <$> get
   let beforeAll = filter isBeforeAllBlock allTopLevels
       afterAll = filter isAfterAllBlock allTopLevels
@@ -304,7 +304,10 @@ runAction' name tls args = do
       actions = takeAction tls
       afters = takeAfter tls
 
-  executeTopLevels beforeAll
+  if topRun
+  then executeTopLevels beforeAll
+  else pure ()
+
   executeTopLevels befores
   executeTopLevels actions
 
@@ -313,8 +316,11 @@ runAction' name tls args = do
   liftIO $ runner t
 
   executeTopLevels afters
-  executeTopLevels afterAll
-  
+
+  if topRun
+  then executeTopLevels afterAll
+  else pure ()
+
   where
     executeTopLevels = mapM_ executeTopLevel
     executeTopLevel = evalTopLevel' args
@@ -332,5 +338,5 @@ runAction' name tls args = do
     isAfterBlock _ = False
     takeAfter = filter isAfterBlock
 
-runAction :: String -> [Value] -> Interpreter ()
-runAction name args = getTopLevels name >>= \tls -> runAction' name tls args
+runAction :: Bool -> String -> [Value] -> Interpreter ()
+runAction topRun name args = getTopLevels name >>= \tls -> runAction' topRun name tls args

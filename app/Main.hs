@@ -113,7 +113,7 @@ main = do
                     _ : a -> a
                   taskRunner = if verbose args then runTasksOneByOne else runTasksParallel
                   context = loadLibrary $ createContext (verbose args) scrsCurPlat taskRunner
-                  interpreter = runAction actionToStart $ fmap ValStr actionArguments
+                  interpreter = runAction True actionToStart $ fmap ValStr actionArguments
                in catch (void $ run interpreter context) (\e -> do
                     pretty <- supportsPretty
                     let putStrLnStyled = if pretty then putStrLn . color Red else putStrLn
