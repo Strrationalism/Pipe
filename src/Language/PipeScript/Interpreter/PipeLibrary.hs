@@ -254,7 +254,6 @@ getDirs = getFiles' System.Directory.doesDirectoryExist
 
 ensureDir :: PipeFunc
 ensureDir [ValStr dir] = do
-  dir <- toFilePath <$> parseRelDir dir
   cd <- currentWorkAbsDir
   liftIO $ System.Directory.createDirectoryIfMissing True (cd System.FilePath.</> dir)
   return ValUnit
