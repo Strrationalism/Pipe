@@ -314,6 +314,7 @@ runAction' topRun name tls args = do
   t <- fmap tasks get
   runner <- fmap taskRunner get
   liftIO $ runner t
+  modify $ \c -> c {tasks = []}
 
   executeTopLevels afters
 
