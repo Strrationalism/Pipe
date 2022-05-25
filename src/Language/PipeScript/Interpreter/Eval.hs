@@ -119,7 +119,7 @@ runCommand command args = do
             ++ show args
             ++ " failed with exitcode "
             ++ show x
-            ++ ", run pipe with --verbose for more information.",
+            ++ ", run pipe without --parallel for more information.",
             ""
           ]
   when isVerbose $ liftIO $ putStrLn ""
