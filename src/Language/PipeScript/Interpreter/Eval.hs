@@ -122,7 +122,7 @@ runCommand command args = do
             ++ ", run pipe without --parallel for more information.",
             ""
           ]
-  when isVerbose $ liftIO $ putStrLn ""
+  --when isVerbose $ liftIO $ putStrLn ""
   return ValUnit
 
 evalApplyExpr :: Expression -> [Expression] -> Interpreter Value
@@ -211,19 +211,20 @@ evalTopLevel' args (scr, tl) = evalTopLevel scr tl args
 
 evalTopLevel :: Script -> TopLevel -> [Value] -> Interpreter ()
 evalTopLevel script topLevel arguments = do
-  isVerbose <- verbose <$> get
+  --isVerbose <- verbose <$> get
+  {-
   liftIO $ when isVerbose $ do
     pretty <- supportsPretty
     let args' = foldl' (\a b -> a ++ " " ++ b) "" $ fmap show arguments
     let printStyle = if pretty then color Green . style Bold else id
-    putStrLn $ printStyle $ "- " ++ show topLevel ++ args'
+    putStrLn $ printStyle $ "- " ++ show topLevel ++ args' -}
 
   prevScript <- curScript <$> get
   prevTopLevel <- curTopLevel <$> get
   modify $ \c -> c {curTopLevel = topLevel, curScript = script}
   eval topLevel
   modify $ \c -> c {curTopLevel = prevTopLevel, curScript = prevScript}
-  when isVerbose $ liftIO $ putStrLn ""
+  --when isVerbose $ liftIO $ putStrLn ""
   where
     eval (Include _) = return ()
     eval (ActionDefination b) = variableScope $ evalBlock b
