@@ -1,4 +1,5 @@
-module Language.PipeScript.Interpreter.Eval (runAction, evalExpr, evalError, runTopLevelByName, EvalException) where
+module Language.PipeScript.Interpreter.Eval (
+  runAction, evalExpr, evalError, runTopLevelByName, runTasks, EvalException) where
 
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
@@ -296,6 +297,13 @@ runTopLevels name tls args
 runTopLevelByName :: String -> [Value] -> Interpreter ()
 runTopLevelByName x args = getTopLevels x >>= \x' -> runTopLevels x x' args
 
+runTasks :: Interpreter ()
+runTasks = do
+  t <- fmap tasks get
+  runner <- fmap taskRunner get
+  liftIO $ runner t
+  modify $ \c -> c {tasks = []}
+
 runAction' :: Bool -> String -> [(Script, TopLevel)] -> [Value] -> Interpreter ()
 runAction' topRun name tls args = do
   allTopLevels <- concat . toList . topLevels <$> get
@@ -312,10 +320,7 @@ runAction' topRun name tls args = do
   executeTopLevels befores
   executeTopLevels actions
 
-  t <- fmap tasks get
-  runner <- fmap taskRunner get
-  liftIO $ runner t
-  modify $ \c -> c {tasks = []}
+  runTasks
 
   executeTopLevels afters
 

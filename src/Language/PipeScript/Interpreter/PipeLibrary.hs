@@ -6,8 +6,8 @@ import Data.HashMap.Strict
 import Language.PipeScript
 import Language.PipeScript.Interpreter.Context
 import Language.PipeScript.Interpreter.Eval
+import Control.Monad.State.Class ( modify, MonadState(get) )
 import System.Process (runCommand)
-import Control.Monad.State.Class (modify)
 import Path
 import Path.IO
     ( copyFile,
@@ -71,6 +71,9 @@ output (ValSymbol x : args) = output (ValStr x : args)
 output [] = pure ValUnit
 output args = evalError $ "output: takes 1 or more arguments, but got " ++ show args
 
+runTasks :: PipeFunc
+runTasks [] = Language.PipeScript.Interpreter.Eval.runTasks >> pure ValUnit
+runTasks _ = evalError "runTasks: take no argument."
 
 -- Number Operations
 
@@ -349,6 +352,7 @@ loadLibrary c = c {funcs = fromList libi `union` funcs c}
         ("discard", discard),
         ("input", input),
         ("output", output),
+        ("run-tasks", Language.PipeScript.Interpreter.PipeLibrary.runTasks),
         ("add", add),
         ("and", Language.PipeScript.Interpreter.PipeLibrary.and),
         ("or", Language.PipeScript.Interpreter.PipeLibrary.or),
